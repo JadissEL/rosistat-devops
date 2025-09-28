@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rosistrat-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rosistrat-backend
+  template:
+    metadata:
+      labels:
+        app: rosistrat-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/OWNER/rosistrat-backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: DB_FILE
+              value: "/data/rosistrat.db"
+          volumeMounts:
+            - name: sqlite-data
+              mountPath: /data
+      volumes:
+        - name: sqlite-data
+          persistentVolumeClaim:
+            claimName: sqlite-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rosistrat-backend
+spec:
+  selector:
+    app: rosistrat-backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
