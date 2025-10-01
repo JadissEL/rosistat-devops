@@ -13,9 +13,12 @@ spec:
       labels:
         app: rosistat-backend
     spec:
++     imagePullSecrets:
++       - name: ghcr
       containers:
         - name: backend
-          image: ghcr.io/jadissel/rosistat-backend:latest
+-          image: ghcr.io/jadissel/rosistat-backend:latest
++          image: ghcr.io/jadissel/rosistat-backend:0.1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
