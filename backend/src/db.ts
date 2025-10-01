@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // From compiled dist (backend/dist), go up to repo root then database/
-const DEFAULT_DB_PATH = process.env.DB_FILE || path.resolve(__dirname, "../../../database/rosistrat.db");
+const DEFAULT_DB_PATH = process.env.DB_FILE || path.resolve(__dirname, "../../../database/rosistat.db");
 
 export function createDbConnection(dbFile: string = DEFAULT_DB_PATH) {
   const dir = path.dirname(dbFile);

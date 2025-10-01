@@ -47,12 +47,18 @@ jobs:
       - id: lower-owner
         name: Lowercase owner for GHCR tag
         run: echo "owner=${GITHUB_REPOSITORY_OWNER@L}" >> $GITHUB_OUTPUT
+      - name: Read backend version
+        id: pkg
+        run: echo "version=$(jq -r .version backend/package.json)" >> $GITHUB_OUTPUT
+
       - name: Build & push backend
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
-          tags: ghcr.io/jadissel/rosistat-backend:latest
+          tags: |
+            ghcr.io/jadissel/rosistat-backend:latest
+            ghcr.io/jadissel/rosistat-backend:${{ steps.pkg.outputs.version }}
 
   vercel-deploy:
     runs-on: ubuntu-latest
