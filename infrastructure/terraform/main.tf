@@ -17,8 +17,8 @@ variable "kubeconfig" {
   description = "Path to kubeconfig file"
 }
 
-resource "kubernetes_namespace" "rosistrat" {
-  metadata { name = "rosistrat" }
+resource "kubernetes_namespace" "rosistat" {
+  metadata { name = "rosistat" }
 }
 
 
