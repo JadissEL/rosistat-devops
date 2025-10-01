@@ -13,7 +13,7 @@ app.use(express.json());
 
 // Root
 app.get("/", (_req, res) => {
-  res.json({ service: "rosistrat-backend", status: "ok" });
+  res.json({ service: "rosistat-backend", status: "ok" });
 });
 
 // DB + Migrations + Seeds

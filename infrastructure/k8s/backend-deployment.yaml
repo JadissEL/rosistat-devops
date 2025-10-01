@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rosistrat-backend
+  name: rosistat-backend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: rosistrat-backend
+      app: rosistat-backend
   template:
     metadata:
       labels:
-        app: rosistrat-backend
+        app: rosistat-backend
     spec:
       containers:
         - name: backend
-          image: ghcr.io/jadissel/rosistrat-backend:latest
+          image: ghcr.io/jadissel/rosistat-backend:latest
           ports:
             - containerPort: 8080
           env:
@@ -33,10 +33,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: rosistrat-backend
+  name: rosistat-backend
 spec:
   selector:
-    app: rosistrat-backend
+    app: rosistat-backend
   ports:
     - protocol: TCP
       port: 80
