@@ -1,5 +1,7 @@
 # 🎰 RoSiStrat - European Roulette Strategy Simulator
 
+[![Deploy to GitHub Pages](https://github.com/JadissEL/rosistat-devops/actions/workflows/deploy.yml/badge.svg)](https://github.com/JadissEL/rosistat-devops/actions/workflows/deploy.yml)
+
 **Created by Jadiss EL ANTAKI**
 
 A comprehensive European Roulette strategy simulation platform that helps users understand betting systems without risking real money.
@@ -15,7 +17,7 @@ A comprehensive European Roulette strategy simulation platform that helps users 
 
 ## 🚀 Live Demo
 
-Visit: [Your deployed URL will go here]
+Visit: https://jadissel.github.io/rosistat-devops/
 
 ## 🛠️ Tech Stack
 
