@@ -16,6 +16,7 @@ spec:
       containers:
         - name: backend
           image: ghcr.io/jadissel/rosistat-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
