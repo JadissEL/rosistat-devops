@@ -44,12 +44,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - id: lower-owner
+        name: Lowercase owner for GHCR tag
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER@L}" >> $GITHUB_OUTPUT
       - name: Build & push backend
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/rosistrat-backend:latest
+          tags: ghcr.io/${{ steps.lower-owner.outputs.owner }}/rosistrat-backend:latest
 
   vercel-deploy:
     runs-on: ubuntu-latest
