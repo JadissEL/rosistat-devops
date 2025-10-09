@@ -17,9 +17,12 @@ const originalConsole = {
 };
 
 // Step 2: Create comprehensive warning detection
-const isUnwantedWarning = (message: any, ...args: any[]): boolean => {
+const isUnwantedWarning = (message: unknown, ...args: unknown[]): boolean => {
   // Convert all arguments to strings and join them
-  const fullMessage = [message, ...args].join(" ").toLowerCase();
+  const fullMessage = [message, ...args]
+    .map((a) => String(a))
+    .join(" ")
+    .toLowerCase();
 
   // Check for defaultProps related warnings
   const defaultPropsPatterns = [
@@ -38,19 +41,19 @@ const isUnwantedWarning = (message: any, ...args: any[]): boolean => {
 };
 
 // Step 3: Override console methods immediately and aggressively
-console.warn = (...args: any[]) => {
+console.warn = (...args: unknown[]) => {
   if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-  return originalConsole.warn.apply(console, args);
+  return originalConsole.warn.apply(console, args as unknown[]);
 };
 
-console.error = (...args: any[]) => {
+console.error = (...args: unknown[]) => {
   if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-  return originalConsole.error.apply(console, args);
+  return originalConsole.error.apply(console, args as unknown[]);
 };
 
-console.log = (...args: any[]) => {
+console.log = (...args: unknown[]) => {
   if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-  return originalConsole.log.apply(console, args);
+  return originalConsole.log.apply(console, args as unknown[]);
 };
 
 // Step 4: Global and window-level suppression
@@ -61,14 +64,14 @@ if (typeof globalThis !== "undefined") {
   };
 
   if (globalThis.console) {
-    globalThis.console.warn = (...args: any[]) => {
+    globalThis.console.warn = (...args: unknown[]) => {
       if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-      return globalOriginal.warn?.apply(globalThis.console, args);
+      return globalOriginal.warn?.apply(globalThis.console, args as unknown[]);
     };
 
-    globalThis.console.error = (...args: any[]) => {
+    globalThis.console.error = (...args: unknown[]) => {
       if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-      return globalOriginal.error?.apply(globalThis.console, args);
+      return globalOriginal.error?.apply(globalThis.console, args as unknown[]);
     };
   }
 }
@@ -80,14 +83,14 @@ if (typeof window !== "undefined") {
   };
 
   if (window.console) {
-    window.console.warn = (...args: any[]) => {
+    window.console.warn = (...args: unknown[]) => {
       if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-      return windowOriginal.warn?.apply(window.console, args);
+      return windowOriginal.warn?.apply(window.console, args as unknown[]);
     };
 
-    window.console.error = (...args: any[]) => {
+    window.console.error = (...args: unknown[]) => {
       if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-      return windowOriginal.error?.apply(window.console, args);
+      return windowOriginal.error?.apply(window.console, args as unknown[]);
     };
   }
 }
@@ -98,29 +101,33 @@ if (typeof window !== "undefined") {
   // Monkey patch React's warning system after a short delay
   setTimeout(() => {
     // Try to find and override React's internal warning mechanisms
-    const reactFiberDevtools = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    type DevtoolsHook = { onCommitFiberRoot?: (...args: unknown[]) => unknown };
+    const reactFiberDevtools = (window as unknown as Record<string, unknown>)
+      .__REACT_DEVTOOLS_GLOBAL_HOOK__ as DevtoolsHook | undefined;
     if (reactFiberDevtools && reactFiberDevtools.onCommitFiberRoot) {
       // Suppress React DevTools warnings
       const originalOnCommit = reactFiberDevtools.onCommitFiberRoot;
-      reactFiberDevtools.onCommitFiberRoot = (...args: any[]) => {
+      reactFiberDevtools.onCommitFiberRoot = (...args: unknown[]) => {
         try {
-          return originalOnCommit.apply(reactFiberDevtools, args);
-        } catch (e) {
+          return originalOnCommit.apply(reactFiberDevtools, args as unknown[]);
+        } catch {
           // Suppress any errors from DevTools
+          return undefined;
         }
       };
     }
 
     // Additional React warning suppression
-    if (
-      (window as any).React &&
-      (window as any).React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
-    ) {
-      const internals = (window as any).React
-        .__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-      if (internals.ReactDebugCurrentFrame) {
-        internals.ReactDebugCurrentFrame.getCurrentStack = () => "";
-      }
+    const reactObj = (window as unknown as Record<string, unknown>).React as
+      | Record<string, unknown>
+      | undefined;
+    const internals = reactObj &&
+      (reactObj as Record<string, unknown>)
+        .__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED as
+      | { ReactDebugCurrentFrame?: { getCurrentStack?: () => string } }
+      | undefined;
+    if (internals && internals.ReactDebugCurrentFrame) {
+      internals.ReactDebugCurrentFrame.getCurrentStack = () => "";
     }
   }, 10);
 
@@ -133,9 +140,9 @@ if (typeof window !== "undefined") {
     ) {
       // Console has been reset, reapply our suppression
       const currentWarn = window.console.warn;
-      window.console.warn = (...args: any[]) => {
+      window.console.warn = (...args: unknown[]) => {
         if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-        return currentWarn.apply(window.console, args);
+        return currentWarn.apply(window.console, args as unknown[]);
       };
     }
 
@@ -145,9 +152,9 @@ if (typeof window !== "undefined") {
       !window.console.error.toString().includes("isUnwantedWarning")
     ) {
       const currentError = window.console.error;
-      window.console.error = (...args: any[]) => {
+      window.console.error = (...args: unknown[]) => {
         if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-        return currentError.apply(window.console, args);
+        return currentError.apply(window.console, args as unknown[]);
       };
     }
   }, 1000);
@@ -162,9 +169,9 @@ if (typeof process !== "undefined" && process.env) {
 Object.defineProperty(console, "warn", {
   get:
     () =>
-    (...args: any[]) => {
+    (...args: unknown[]) => {
       if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-      return originalConsole.warn.apply(console, args);
+      return originalConsole.warn.apply(console, args as unknown[]);
     },
   configurable: true,
   enumerable: true,
@@ -173,9 +180,9 @@ Object.defineProperty(console, "warn", {
 Object.defineProperty(console, "error", {
   get:
     () =>
-    (...args: any[]) => {
+    (...args: unknown[]) => {
       if (isUnwantedWarning(args[0], ...args.slice(1))) return;
-      return originalConsole.error.apply(console, args);
+      return originalConsole.error.apply(console, args as unknown[]);
     },
   configurable: true,
   enumerable: true,

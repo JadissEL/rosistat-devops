@@ -77,7 +77,7 @@ export type Row = Record<string, unknown>;
 
 export function run(db: Database, sql: string, params: unknown[] = []): Promise<void> {
   return new Promise((resolve, reject) => {
-    db.run(sql, params as any, function (err) {
+    db.run(sql, params as unknown[], function (err) {
       if (err) return reject(err);
       resolve();
     });
@@ -86,7 +86,7 @@ export function run(db: Database, sql: string, params: unknown[] = []): Promise<
 
 export function get<T = Row>(db: Database, sql: string, params: unknown[] = []): Promise<T | undefined> {
   return new Promise((resolve, reject) => {
-    db.get(sql, params as any, function (err, row) {
+    db.get(sql, params as unknown[], function (err, row) {
       if (err) return reject(err);
       resolve(row as T | undefined);
     });
@@ -95,7 +95,7 @@ export function get<T = Row>(db: Database, sql: string, params: unknown[] = []):
 
 export function all<T = Row>(db: Database, sql: string, params: unknown[] = []): Promise<T[]> {
   return new Promise((resolve, reject) => {
-    db.all(sql, params as any, function (err, rows) {
+    db.all(sql, params as unknown[], function (err, rows) {
       if (err) return reject(err);
       resolve(rows as T[]);
     });
@@ -114,7 +114,7 @@ export async function applySeeds(db: Database, seedsPath: string) {
     const sql = fs.readFileSync(path.join(seedsPath, file), "utf8");
     // Use exec to execute multi-statement SQL seed files
     await new Promise<void>((resolve, reject) => {
-      (db as any).exec(sql, (err: Error | null) => {
+      (db as Database).exec(sql, (err: Error | null) => {
         if (err) return reject(err);
         resolve();
       });

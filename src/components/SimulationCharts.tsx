@@ -10,6 +10,7 @@ import {
   Bar,
   Tooltip,
   Legend,
+  TooltipProps,
 } from "recharts";
 import {
   ChartContainer,
@@ -83,30 +84,38 @@ export function SimulationCharts({ results }: SimulationChartsProps) {
     },
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
           <p className="text-sm font-medium">{`Spin ${label}`}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {`${entry.name}: ${entry.value.toLocaleString()}`}
-            </p>
-          ))}
+          {payload.map((entry, index) => {
+            const value = typeof entry.value === "number" ? entry.value : Number(entry.value);
+            const color = (entry as unknown as { color?: string }).color || "";
+            const name = entry.name ?? (entry.dataKey as string | undefined) ?? "";
+            return (
+              <p key={index} className="text-sm" style={{ color }}>
+                {`${name}: ${Number.isFinite(value) ? value.toLocaleString() : entry.value}`}
+              </p>
+            );
+          })}
         </div>
       );
     }
     return null;
   };
 
-  const FrequencyTooltip = ({ active, payload, label }: any) => {
+  const FrequencyTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
-      const data = frequencyData.find((d) => d.number === parseInt(label));
+      const parsedLabel = typeof label === "number" ? label : Number(label);
+      const data = frequencyData.find((d) => d.number === parsedLabel);
+      const first = payload[0];
+      const color = (first as unknown as { color?: string }).color || "";
       return (
         <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
           <p className="text-sm font-medium">{`Number ${label}`}</p>
-          <p className="text-sm" style={{ color: payload[0].color }}>
-            {`Count: ${payload[0].value}`}
+          <p className="text-sm" style={{ color }}>
+            {`Count: ${first.value}`}
           </p>
           <p className="text-sm text-muted-foreground">
             {`Percentage: ${data?.percentage.toFixed(1)}%`}

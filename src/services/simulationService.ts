@@ -11,6 +11,24 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+export interface SimulationSettings {
+  safetyRatio?: number;
+  kellyFraction?: number;
+  baseSafetyRatio?: number;
+  volatilityThreshold?: number;
+  standardMartingaleBaseBet?: number;
+  simulateRealisticStreaks?: boolean;
+  streakTolerance?: number;
+}
+
+export interface GenericSpinResult {
+  spin: number;
+  drawnNumber?: number;
+  spinNetResult: number;
+  cumulativeEarnings: number;
+  [key: string]: unknown;
+}
+
 export interface SimulationResult {
   id?: string;
   userId?: string; // Only for authenticated users
@@ -20,8 +38,8 @@ export interface SimulationResult {
   finalPortfolio: number;
   totalSpins: number;
   timestamp: Date;
-  settings: Record<string, any>;
-  results: any[]; // Full simulation results
+  settings: SimulationSettings;
+  results: GenericSpinResult[]; // Full simulation results
 }
 
 export interface LocalSimulationData {
@@ -41,7 +59,7 @@ export class SimulationService {
       if (data) {
         return JSON.parse(data);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error loading local simulation data:", error);
     }
 
@@ -62,7 +80,7 @@ export class SimulationService {
   static saveLocalData(data: LocalSimulationData): void {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error saving local simulation data:", error);
     }
   }
@@ -73,7 +91,7 @@ export class SimulationService {
       if (data) {
         return JSON.parse(data);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error loading session simulation data:", error);
     }
 
@@ -94,7 +112,7 @@ export class SimulationService {
   static saveSessionData(data: LocalSimulationData): void {
     try {
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error saving session simulation data:", error);
     }
   }
@@ -152,7 +170,7 @@ export class SimulationService {
         simulationData,
       );
       return docRef.id;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error saving simulation:", error);
       throw error;
     }
@@ -179,7 +197,7 @@ export class SimulationService {
       });
 
       return simulations;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching user simulations:", error);
       throw error;
     }
@@ -188,7 +206,7 @@ export class SimulationService {
   static async deleteSimulation(simulationId: string): Promise<void> {
     try {
       await deleteDoc(doc(db, "simulations", simulationId));
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error deleting simulation:", error);
       throw error;
     }
@@ -207,7 +225,7 @@ export class SimulationService {
 
       // Clear local data after successful migration
       this.clearLocalData();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error migrating local data to cloud:", error);
       // Don't throw - allow the app to continue functioning
     }

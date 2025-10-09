@@ -256,6 +256,28 @@ export function StrategyExplanationModal({
   const info = STRATEGY_INFO[strategy];
   const Icon = info.icon;
 
+  // Map dynamic color keys to static Tailwind classes to ensure proper detection
+  const textColorMap: Record<string, string> = {
+    green: "text-green-400",
+    red: "text-red-400",
+    purple: "text-purple-400",
+    blue: "text-blue-400",
+  };
+
+  const bgColorMap: Record<string, string> = {
+    green: "bg-green-600",
+    red: "bg-red-600",
+    purple: "bg-purple-600",
+    blue: "bg-blue-600",
+  };
+
+  const hoverBgColorMap: Record<string, string> = {
+    green: "hover:bg-green-700",
+    red: "hover:bg-red-700",
+    purple: "hover:bg-purple-700",
+    blue: "hover:bg-blue-700",
+  };
+
   const getRiskColor = (level: string) => {
     switch (level) {
       case "Low-Medium":
@@ -289,7 +311,7 @@ export function StrategyExplanationModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-2xl">
-            <Icon className={`w-8 h-8 text-${info.color}-400`} />
+            <Icon className={`w-8 h-8 ${textColorMap[info.color]}`} />
             {info.title}
           </DialogTitle>
           <DialogDescription className="text-base">
@@ -412,7 +434,7 @@ export function StrategyExplanationModal({
           <div className="flex justify-end">
             <Button
               onClick={() => onOpenChange(false)}
-              className={`bg-${info.color}-600 hover:bg-${info.color}-700`}
+              className={`${bgColorMap[info.color]} ${hoverBgColorMap[info.color]}`}
             >
               Got it! Let's simulate this strategy
             </Button>

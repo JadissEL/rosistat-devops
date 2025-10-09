@@ -41,7 +41,7 @@ import {
 import { StrategyExplanationModal } from "@/components/simulation/StrategyExplanationModal";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
-import { SimulationService } from "@/services/simulationService";
+import { SimulationService, type GenericSpinResult, type SimulationResult } from "@/services/simulationService";
 import {
   Play,
   Download,
@@ -63,6 +63,10 @@ import {
   FileText,
   Heart,
 } from "lucide-react";
+
+// Modularized roulette config & strategies
+import { BET_TYPES } from "./index/betTypes";
+import { COMPOUND_MARTINGALE_STRATEGIES, MAX_LOSE_STRATEGIES } from "./index/config";
 
 // European Roulette utilities and simulation logic
 interface RouletteNumber {
@@ -93,6 +97,15 @@ interface CompoundMartingaleConfig {
   customProgression?: number[];
   resetOnWin: boolean;
   maxBet?: number;
+}
+
+interface CompoundMartingaleState {
+  config: CompoundMartingaleConfig;
+  currentBet: number;
+  totalWagered: number;
+  totalWon: number;
+  netResult: number;
+  progressionStep: number;
 }
 
 // Max Lose Strategy State
@@ -194,7 +207,7 @@ interface SpinResult {
   wins: Record<string, boolean>;
   strategyType: StrategyType;
   // Strategy-specific states
-  compoundMartingaleState?: Record<string, any>;
+  compoundMartingaleState?: Record<string, CompoundMartingaleState>;
   maxLoseState?: Record<string, MaxLoseState>;
   zappingState?: ZappingState;
   safeCompoundMartingaleState?: Record<string, SafeCompoundMartingaleState>;
@@ -205,455 +218,26 @@ interface SpinResult {
   pausedParameters?: string[]; // Track which parameters are paused due to capital protection
 }
 
-// European roulette wheel configuration
-const ROULETTE_NUMBERS: RouletteNumber[] = [
-  { number: 0, color: "green", isEven: false, dozen: null },
-  // Red numbers
-  { number: 1, color: "red", isEven: false, dozen: 1 },
-  { number: 3, color: "red", isEven: false, dozen: 1 },
-  { number: 5, color: "red", isEven: false, dozen: 1 },
-  { number: 7, color: "red", isEven: false, dozen: 1 },
-  { number: 9, color: "red", isEven: false, dozen: 1 },
-  { number: 12, color: "red", isEven: true, dozen: 1 },
-  { number: 14, color: "red", isEven: true, dozen: 2 },
-  { number: 16, color: "red", isEven: true, dozen: 2 },
-  { number: 18, color: "red", isEven: true, dozen: 2 },
-  { number: 19, color: "red", isEven: false, dozen: 2 },
-  { number: 21, color: "red", isEven: false, dozen: 2 },
-  { number: 23, color: "red", isEven: false, dozen: 2 },
-  { number: 25, color: "red", isEven: false, dozen: 3 },
-  { number: 27, color: "red", isEven: false, dozen: 3 },
-  { number: 30, color: "red", isEven: true, dozen: 3 },
-  { number: 32, color: "red", isEven: true, dozen: 3 },
-  { number: 34, color: "red", isEven: true, dozen: 3 },
-  { number: 36, color: "red", isEven: true, dozen: 3 },
-  // Black numbers
-  { number: 2, color: "black", isEven: true, dozen: 1 },
-  { number: 4, color: "black", isEven: true, dozen: 1 },
-  { number: 6, color: "black", isEven: true, dozen: 1 },
-  { number: 8, color: "black", isEven: true, dozen: 1 },
-  { number: 10, color: "black", isEven: true, dozen: 1 },
-  { number: 11, color: "black", isEven: false, dozen: 1 },
-  { number: 13, color: "black", isEven: false, dozen: 2 },
-  { number: 15, color: "black", isEven: false, dozen: 2 },
-  { number: 17, color: "black", isEven: false, dozen: 2 },
-  { number: 20, color: "black", isEven: true, dozen: 2 },
-  { number: 22, color: "black", isEven: true, dozen: 2 },
-  { number: 24, color: "black", isEven: true, dozen: 2 },
-  { number: 26, color: "black", isEven: true, dozen: 3 },
-  { number: 28, color: "black", isEven: true, dozen: 3 },
-  { number: 29, color: "black", isEven: false, dozen: 3 },
-  { number: 31, color: "black", isEven: false, dozen: 3 },
-  { number: 33, color: "black", isEven: false, dozen: 3 },
-  { number: 35, color: "black", isEven: false, dozen: 3 },
-];
+// European roulette wheel configuration moved to src/pages/index/roulette.ts
+import { ROULETTE_NUMBERS, getRouletteNumber } from "./index/roulette";
 
-function getRouletteNumber(num: number): RouletteNumber {
-  const found = ROULETTE_NUMBERS.find((r) => r.number === num);
-  if (!found) {
-    throw new Error(`Invalid roulette number: ${num}`);
-  }
-  return found;
-}
+// Enhanced Realistic Roulette Generator moved to src/pages/index/prngCore.ts
+// Config imported via REALISTIC_ROULETTE_CONFIG above.
 
-// Enhanced Realistic Roulette Generator with Natural Streak Behavior
-interface RealisticRouletteConfig {
-  realistic_streaks_enabled: boolean;
-  max_expected_streak_length: number;
-  volatility_model: "natural" | "enhanced" | "extreme";
-  streak_probability_model: "MonteCarlo" | "weighted" | "natural";
-  variance_amplifier: number;
-}
+// Advanced Pseudo-Random Number Generator moved to src/pages/index/prngCore.ts
+import { RealisticRoulettePRNG, REALISTIC_ROULETTE_CONFIG, RealisticRouletteConfig } from "./index/prngCore";
 
-const REALISTIC_ROULETTE_CONFIG: RealisticRouletteConfig = {
-  realistic_streaks_enabled: true,
-  max_expected_streak_length: 15,
-  volatility_model: "natural",
-  streak_probability_model: "MonteCarlo",
-  variance_amplifier: 1.2,
-};
+// Streak helpers imported from modular file
+import { applyStreakAmplification, analyzeStreakPatterns } from "./index/streaks";
 
-// Advanced Pseudo-Random Number Generator (Mersenne Twister-inspired)
-class RealisticRoulettePRNG {
-  private seed: number;
-  private mt: number[] = [];
-  private index: number = 0;
 
-  constructor(seed?: number) {
-    this.seed = seed || Date.now();
-    this.initialize();
-  }
+// Enhanced spin generation moved to src/pages/index/prng.ts
+import { generateFixedSpins } from "./index/prng";
 
-  private initialize(): void {
-    this.mt[0] = this.seed;
-    for (let i = 1; i < 624; i++) {
-      this.mt[i] =
-        (1812433253 * (this.mt[i - 1] ^ (this.mt[i - 1] >> 30)) + i) &
-        0xffffffff;
-    }
-  }
 
-  private extractNumber(): number {
-    if (this.index >= 624) {
-      this.generateNumbers();
-    }
+// Predefined bet types relocated to ./index/betTypes and imported above.
 
-    let y = this.mt[this.index];
-    y = y ^ (y >> 11);
-    y = y ^ ((y << 7) & 0x9d2c5680);
-    y = y ^ ((y << 15) & 0xefc60000);
-    y = y ^ (y >> 18);
-
-    this.index++;
-    return (y >>> 0) / 0x100000000;
-  }
-
-  private generateNumbers(): void {
-    for (let i = 0; i < 624; i++) {
-      const y =
-        (this.mt[i] & 0x80000000) + (this.mt[(i + 1) % 624] & 0x7fffffff);
-      this.mt[i] = this.mt[(i + 397) % 624] ^ (y >> 1);
-      if (y % 2 !== 0) {
-        this.mt[i] = this.mt[i] ^ 0x9908b0df;
-      }
-    }
-    this.index = 0;
-  }
-
-  public random(): number {
-    return this.extractNumber();
-  }
-
-  public randomInt(min: number, max: number): number {
-    return Math.floor(this.random() * (max - min + 1)) + min;
-  }
-}
-
-// Streak Amplification Logic
-function applyStreakAmplification(
-  currentSpins: number[],
-  prng: RealisticRoulettePRNG,
-  config: RealisticRouletteConfig,
-): number {
-  if (!config.realistic_streaks_enabled || currentSpins.length < 2) {
-    return prng.randomInt(0, 36);
-  }
-
-  // Analyze recent outcomes for streak patterns
-  const recentSpins = currentSpins.slice(-10); // Look at last 10 spins
-  const lastSpin = recentSpins[recentSpins.length - 1];
-
-  // Count consecutive patterns
-  const patterns = {
-    sameNumber: 0,
-    sameColor: 0,
-    sameEvenOdd: 0,
-    sameDozen: 0,
-    sameHighLow: 0,
-  };
-
-  // Count consecutive streaks
-  for (let i = recentSpins.length - 1; i >= 1; i--) {
-    const current = getRouletteNumber(recentSpins[i]);
-    const previous = getRouletteNumber(recentSpins[i - 1]);
-
-    if (recentSpins[i] === recentSpins[i - 1]) patterns.sameNumber++;
-    else break;
-  }
-
-  for (let i = recentSpins.length - 1; i >= 1; i--) {
-    const current = getRouletteNumber(recentSpins[i]);
-    const previous = getRouletteNumber(recentSpins[i - 1]);
-
-    if (current.color === previous.color && current.color !== "green")
-      patterns.sameColor++;
-    else break;
-  }
-
-  for (let i = recentSpins.length - 1; i >= 1; i--) {
-    const current = getRouletteNumber(recentSpins[i]);
-    const previous = getRouletteNumber(recentSpins[i - 1]);
-
-    if (
-      current.isEven === previous.isEven &&
-      recentSpins[i] !== 0 &&
-      recentSpins[i - 1] !== 0
-    )
-      patterns.sameEvenOdd++;
-    else break;
-  }
-
-  // Streak continuation probability (natural but enhanced)
-  const maxPatternLength = Math.max(
-    patterns.sameColor,
-    patterns.sameEvenOdd,
-    patterns.sameDozen,
-  );
-
-  // Natural streak continuation probability decreases as streak length increases
-  let continuationProbability = 0.48; // Slightly below 50% for natural feel
-
-  if (maxPatternLength > 0) {
-    // As streaks get longer, they become less likely but still possible
-    continuationProbability = Math.max(
-      0.15, // Minimum 15% chance even for very long streaks
-      0.48 - maxPatternLength * 0.04, // Decrease by 4% per consecutive outcome
-    );
-
-    // Variance amplifier can increase continuation probability
-    continuationProbability *= config.variance_amplifier;
-    continuationProbability = Math.min(0.65, continuationProbability); // Cap at 65%
-  }
-
-  // Implement streak continuation logic
-  if (maxPatternLength > 0 && prng.random() < continuationProbability) {
-    const lastNumber = getRouletteNumber(lastSpin);
-
-    // Continue the most prominent pattern
-    if (patterns.sameColor >= patterns.sameEvenOdd) {
-      // Continue color streak
-      const sameColorNumbers = ROULETTE_NUMBERS.filter(
-        (r) => r.color === lastNumber.color,
-      );
-      if (sameColorNumbers.length > 0) {
-        const randomIndex = prng.randomInt(0, sameColorNumbers.length - 1);
-        return sameColorNumbers[randomIndex].number;
-      }
-    } else {
-      // Continue even/odd streak
-      const sameParityNumbers = ROULETTE_NUMBERS.filter(
-        (r) => r.number !== 0 && r.isEven === lastNumber.isEven,
-      );
-      if (sameParityNumbers.length > 0) {
-        const randomIndex = prng.randomInt(0, sameParityNumbers.length - 1);
-        return sameParityNumbers[randomIndex].number;
-      }
-    }
-  }
-
-  // Natural random outcome (most common case)
-  return prng.randomInt(0, 36);
-}
-
-// Enhanced spin generation with realistic streaks
-function generateFixedSpins(count: number = 500): number[] {
-  const spins: number[] = [];
-  const prng = new RealisticRoulettePRNG(); // Use enhanced PRNG
-
-  for (let i = 0; i < count; i++) {
-    let nextSpin: number;
-
-    if (REALISTIC_ROULETTE_CONFIG.realistic_streaks_enabled && i > 0) {
-      nextSpin = applyStreakAmplification(
-        spins,
-        prng,
-        REALISTIC_ROULETTE_CONFIG,
-      );
-    } else {
-      nextSpin = prng.randomInt(0, 36);
-    }
-
-    spins.push(nextSpin);
-  }
-
-  return spins;
-}
-
-// Utility function to analyze streak patterns in results
-function analyzeStreakPatterns(spins: number[]): {
-  longestColorStreak: { color: string; length: number; startIndex: number };
-  longestEvenOddStreak: { type: string; length: number; startIndex: number };
-  longestNumberStreak: { number: number; length: number; startIndex: number };
-  totalStreaksOver5: number;
-  totalStreaksOver10: number;
-} {
-  let longestColorStreak = { color: "", length: 0, startIndex: 0 };
-  let longestEvenOddStreak = { type: "", length: 0, startIndex: 0 };
-  let longestNumberStreak = { number: 0, length: 0, startIndex: 0 };
-  let totalStreaksOver5 = 0;
-  let totalStreaksOver10 = 0;
-
-  // Analyze color streaks
-  let currentColorStreak = 1;
-  let currentColor = getRouletteNumber(spins[0]).color;
-  let colorStartIndex = 0;
-
-  for (let i = 1; i < spins.length; i++) {
-    const spinColor = getRouletteNumber(spins[i]).color;
-
-    if (spinColor === currentColor && spinColor !== "green") {
-      currentColorStreak++;
-    } else {
-      if (
-        currentColorStreak > longestColorStreak.length &&
-        currentColor !== "green"
-      ) {
-        longestColorStreak = {
-          color: currentColor,
-          length: currentColorStreak,
-          startIndex: colorStartIndex,
-        };
-      }
-      if (currentColorStreak > 5) totalStreaksOver5++;
-      if (currentColorStreak > 10) totalStreaksOver10++;
-
-      currentColorStreak = 1;
-      currentColor = spinColor;
-      colorStartIndex = i;
-    }
-  }
-
-  // Check final streak
-  if (
-    currentColorStreak > longestColorStreak.length &&
-    currentColor !== "green"
-  ) {
-    longestColorStreak = {
-      color: currentColor,
-      length: currentColorStreak,
-      startIndex: colorStartIndex,
-    };
-  }
-
-  // Similar analysis for even/odd and number streaks would go here...
-  // (Simplified for brevity, but the same pattern applies)
-
-  return {
-    longestColorStreak,
-    longestEvenOddStreak,
-    longestNumberStreak,
-    totalStreaksOver5,
-    totalStreaksOver10,
-  };
-}
-
-// Predefined bet types and their win conditions
-const BET_TYPES = {
-  single: (num: number, target: string | number) => num === Number(target),
-  dozen: (num: number, target: string | number) => {
-    if (target === "1-12") return num >= 1 && num <= 12;
-    if (target === "13-24") return num >= 13 && num <= 24;
-    if (target === "25-36") return num >= 25 && num <= 36;
-    return false;
-  },
-  color: (num: number, target: string | number) => {
-    const rouletteNum = getRouletteNumber(num);
-    return rouletteNum.color === target;
-  },
-  even_odd: (num: number, target: string | number) => {
-    if (num === 0) return false;
-    const isEven = num % 2 === 0;
-    return target === "even" ? isEven : !isEven;
-  },
-  high_low: (num: number, target: string | number) => {
-    if (num === 0) return false;
-    return target === "high" ? num >= 19 : num <= 18;
-  },
-  column: (num: number, target: string | number) => {
-    if (num === 0) return false;
-    const col = ((num - 1) % 3) + 1;
-    return col === Number(target);
-  },
-};
-
-// Compound Martingale Strategy Configuration
-const COMPOUND_MARTINGALE_STRATEGIES: CompoundMartingaleConfig[] = [
-  {
-    id: "zero",
-    name: "Number 0",
-    initialBet: 1,
-    betType: "single",
-    target: 0,
-    progression: "custom",
-    winMultiplier: 36,
-    customProgression: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    resetOnWin: true,
-  },
-  {
-    id: "first_dozen",
-    name: "1st Dozen (1-12)",
-    initialBet: 12,
-    betType: "dozen",
-    target: "1-12",
-    progression: "martingale",
-    winMultiplier: 3,
-    resetOnWin: true,
-  },
-  {
-    id: "second_dozen",
-    name: "2nd Dozen (13-24)",
-    initialBet: 12,
-    betType: "dozen",
-    target: "13-24",
-    progression: "martingale",
-    winMultiplier: 3,
-    resetOnWin: true,
-  },
-  {
-    id: "black",
-    name: "Black",
-    initialBet: 18,
-    betType: "color",
-    target: "black",
-    progression: "martingale",
-    winMultiplier: 2,
-    resetOnWin: true,
-  },
-  {
-    id: "even",
-    name: "Even",
-    initialBet: 18,
-    betType: "even_odd",
-    target: "even",
-    progression: "martingale",
-    winMultiplier: 2,
-    resetOnWin: true,
-  },
-];
-
-// Max Lose Strategy Configuration
-const MAX_LOSE_STRATEGIES = [
-  {
-    id: "red",
-    name: "Red",
-    initialBet: 18,
-    betType: "color" as const,
-    target: "red",
-    winMultiplier: 2,
-  },
-  {
-    id: "black",
-    name: "Black",
-    initialBet: 18,
-    betType: "color" as const,
-    target: "black",
-    winMultiplier: 2,
-  },
-  {
-    id: "odd",
-    name: "Odd",
-    initialBet: 18,
-    betType: "even_odd" as const,
-    target: "odd",
-    winMultiplier: 2,
-  },
-  {
-    id: "even",
-    name: "Even",
-    initialBet: 18,
-    betType: "even_odd" as const,
-    target: "even",
-    winMultiplier: 2,
-  },
-  {
-    id: "zero",
-    name: "Number 0",
-    initialBet: 1,
-    betType: "single" as const,
-    target: 0,
-    winMultiplier: 36,
-  },
-];
+// Strategy configurations relocated to ./index/config and imported above.
 
 // Strategy simulation functions
 function runCompoundMartingaleSimulation(spins: number[]): SpinResult[] {
@@ -796,8 +380,28 @@ function runZappingSimulation(spins: number[]): SpinResult[] {
 }
 
 // Initialize strategies for each type
-function initializeCompoundMartingaleStrategies(): Record<string, any> {
-  const strategies: Record<string, any> = {};
+function initializeCompoundMartingaleStrategies(): Record<
+  string,
+  {
+    config: CompoundMartingaleConfig;
+    currentBet: number;
+    totalWagered: number;
+    totalWon: number;
+    netResult: number;
+    progressionStep: number;
+  }
+> {
+  const strategies: Record<
+    string,
+    {
+      config: CompoundMartingaleConfig;
+      currentBet: number;
+      totalWagered: number;
+      totalWon: number;
+      netResult: number;
+      progressionStep: number;
+    }
+  > = {};
   COMPOUND_MARTINGALE_STRATEGIES.forEach((config) => {
     strategies[config.id] = {
       config,
@@ -918,7 +522,7 @@ function initializeStandardMartingaleStrategy(
 // Process spins for each strategy type
 function processCompoundMartingaleSpin(
   drawnNumber: number,
-  strategies: Record<string, any>,
+  strategies: Record<string, CompoundMartingaleState>,
   spinNumber: number,
   previousCumulativeEarnings: number = 0,
 ): SpinResult {
@@ -1451,7 +1055,7 @@ function processStandardMartingaleSpin(
   };
 }
 
-function getNextCompoundMartingaleBet(strategy: any, won: boolean): number {
+function getNextCompoundMartingaleBet(strategy: CompoundMartingaleState, won: boolean): number {
   const { config, progressionStep } = strategy;
 
   if (won && config.resetOnWin) {
@@ -1535,7 +1139,7 @@ const Index = () => {
   const [streakTolerance, setStreakTolerance] = useState(15);
 
   // Realistic streak analysis
-  const [streakAnalysis, setStreakAnalysis] = useState<any>(null);
+  const [streakAnalysis, setStreakAnalysis] = useState<ReturnType<typeof analyzeStreakPatterns> | null>(null);
 
   // Multi-simulation tracking - track final earnings from consecutive runs
   const [multiSimResults, setMultiSimResults] = useState<{
@@ -1672,8 +1276,30 @@ const Index = () => {
             if (currentUser) {
               // Save to cloud for authenticated users
               try {
+                // Convert SpinResult[] to GenericSpinResult[]
+                const genericResults: GenericSpinResult[] = simulationResult.results.map((r) => ({
+                  spin: r.spin,
+                  drawnNumber: r.drawnNumber,
+                  spinNetResult: r.spinNetResult,
+                  cumulativeEarnings: r.cumulativeEarnings,
+                  actualBetsUsed: r.actualBetsUsed,
+                  wins: r.wins,
+                  strategyType: r.strategyType,
+                }));
+
+                const genericSimulationResultForCloud: Omit<SimulationResult, "id"> = {
+                  strategy: simulationResult.strategy,
+                  startingInvestment: simulationResult.startingInvestment,
+                  finalEarnings: simulationResult.finalEarnings,
+                  finalPortfolio: simulationResult.finalPortfolio,
+                  totalSpins: simulationResult.totalSpins,
+                  timestamp: simulationResult.timestamp,
+                  settings: simulationResult.settings,
+                  results: genericResults,
+                };
+
                 await SimulationService.saveSimulation(
-                  simulationResult,
+                  genericSimulationResultForCloud,
                   currentUser.uid,
                 );
               } catch (error) {
@@ -1681,7 +1307,26 @@ const Index = () => {
               }
             } else {
               // Save locally for non-authenticated users
-              SimulationService.addLocalSimulation(simulationResult);
+              const genericResultsLocal: GenericSpinResult[] = simulationResult.results.map((r) => ({
+                spin: r.spin,
+                drawnNumber: r.drawnNumber,
+                spinNetResult: r.spinNetResult,
+                cumulativeEarnings: r.cumulativeEarnings,
+                actualBetsUsed: r.actualBetsUsed,
+                wins: r.wins,
+                strategyType: r.strategyType,
+              }));
+              const genericSimulationResultForLocal: Omit<SimulationResult, "id" | "userId"> = {
+                strategy: simulationResult.strategy,
+                startingInvestment: simulationResult.startingInvestment,
+                finalEarnings: simulationResult.finalEarnings,
+                finalPortfolio: simulationResult.finalPortfolio,
+                totalSpins: simulationResult.totalSpins,
+                timestamp: simulationResult.timestamp,
+                settings: simulationResult.settings,
+                results: genericResultsLocal,
+              };
+              SimulationService.addLocalSimulation(genericSimulationResultForLocal);
             }
           };
 
@@ -1721,10 +1366,10 @@ const Index = () => {
         variant: "default",
       });
       setShowUserDashboard(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error signing out",
-        description: error.message || "Failed to sign out",
+        description: error instanceof Error ? error.message : "Failed to sign out",
         variant: "destructive",
       });
     }
@@ -3056,14 +2701,15 @@ const Index = () => {
                             borderRadius: "8px",
                           }}
                           labelStyle={{ color: "#e2e8f0" }}
-                          formatter={(value: any, name: string) => [
-                            name === "portfolio"
-                              ? formatCurrency(value)
-                              : `${value.toFixed(2)}%`,
-                            name === "portfolio"
-                              ? "Portfolio Value"
-                              : "Growth %",
-                          ]}
+                          formatter={(value: unknown, name: string) => {
+                            const numeric = typeof value === "number" ? value : Number(value);
+                            const label = name === "portfolio" ? "Portfolio Value" : "Growth %";
+                            const display =
+                              name === "portfolio"
+                                ? formatCurrency(numeric, selectedCurrency)
+                                : `${numeric.toFixed(2)}%`;
+                            return [display, label];
+                          }}
                         />
                         <Line
                           type="monotone"
@@ -3111,10 +2757,10 @@ const Index = () => {
                             borderRadius: "8px",
                           }}
                           labelStyle={{ color: "#e2e8f0" }}
-                          formatter={(value: any) => [
-                            formatCurrency(value),
-                            "Earnings",
-                          ]}
+                          formatter={(value: unknown) => {
+                            const numeric = typeof value === "number" ? value : Number(value);
+                            return [formatCurrency(numeric, selectedCurrency), "Earnings"];
+                          }}
                         />
                         <Line
                           type="monotone"
@@ -3208,10 +2854,15 @@ const Index = () => {
                             borderRadius: "8px",
                           }}
                           labelStyle={{ color: "#e2e8f0" }}
-                          formatter={(value: any, name: string, props: any) => [
-                            `${value} times (${props.payload.percentage.toFixed(1)}%)`,
-                            "Frequency",
-                          ]}
+                          formatter={(value: unknown, name: string, props: unknown) => {
+                            const numeric = typeof value === "number" ? value : Number(value);
+                            const percentageSource = (props as { payload?: { percentage?: number } })?.payload?.percentage;
+                            const percentage =
+                              typeof percentageSource === "number"
+                                ? percentageSource
+                                : Number(percentageSource ?? 0);
+                            return [`${numeric} times (${percentage.toFixed(1)}%)`, "Frequency"];
+                          }}
                         />
                         <Bar
                           dataKey="count"
@@ -3286,7 +2937,7 @@ const Index = () => {
                                   : "text-red-400",
                               )}
                             >
-                              {formatCurrency(result.spinNetResult)}
+                              {formatCurrency(result.spinNetResult, selectedCurrency)}
                             </TableCell>
                             <TableCell
                               className={cn(
@@ -3296,7 +2947,7 @@ const Index = () => {
                                   : "text-red-400",
                               )}
                             >
-                              {formatCurrency(result.cumulativeEarnings)}
+                              {formatCurrency(result.cumulativeEarnings, "MAD")}
                             </TableCell>
                             <TableCell
                               className={cn(
@@ -3355,7 +3006,7 @@ const Index = () => {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="text-center">
                           <div className="text-2xl font-bold text-blue-400">
-                            {formatCurrency(STARTING_PORTFOLIO)}
+                            {formatCurrency(STARTING_PORTFOLIO, "MAD")}
                           </div>
                           <div className="text-sm text-slate-400">
                             Starting Portfolio
@@ -3370,7 +3021,7 @@ const Index = () => {
                                 : "text-red-400",
                             )}
                           >
-                            {formatCurrency(finalStats.finalPortfolio)}
+                            {formatCurrency(finalStats.finalPortfolio, "MAD")}
                           </div>
                           <div className="text-sm text-slate-400">
                             Final Portfolio
@@ -3394,7 +3045,7 @@ const Index = () => {
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold text-orange-400">
-                            {formatCurrency(finalStats.maxPortfolio)}
+                            {formatCurrency(finalStats.maxPortfolio, "MAD")}
                           </div>
                           <div className="text-sm text-slate-400">
                             Peak Portfolio
@@ -3469,7 +3120,7 @@ const Index = () => {
                                 )}
                               >
                                 {multiSimResults[selectedStrategy].length > 0
-                                  ? `${calculateRunningAverage(multiSimResults[selectedStrategy]) >= 0 ? "+" : ""}${formatCurrency(Math.round(calculateRunningAverage(multiSimResults[selectedStrategy])))}`
+                                  ? `${calculateRunningAverage(multiSimResults[selectedStrategy]) >= 0 ? "+" : ""}${formatCurrency(Math.round(calculateRunningAverage(multiSimResults[selectedStrategy])), "MAD")}`
                                   : "No Data"}
                               </div>
                               <div className="text-sm text-slate-400">
@@ -3483,6 +3134,7 @@ const Index = () => {
                                       Math.max(
                                         ...multiSimResults[selectedStrategy],
                                       ),
+                                      selectedCurrency
                                     )
                                   : "No Data"}
                               </div>
@@ -3497,6 +3149,7 @@ const Index = () => {
                                       Math.min(
                                         ...multiSimResults[selectedStrategy],
                                       ),
+                                      selectedCurrency
                                     )
                                   : "No Data"}
                               </div>
@@ -3534,7 +3187,7 @@ const Index = () => {
                                       )}
                                     >
                                       {result >= 0 ? "+" : ""}
-                                      {formatCurrency(result)}
+                                      {formatCurrency(result, selectedCurrency)}
                                     </Badge>
                                   ))}
                               </div>
@@ -3573,7 +3226,7 @@ const Index = () => {
                                       )}
                                     >
                                       {results.length > 0
-                                        ? `${calculateRunningAverage(results) >= 0 ? "+" : ""}${formatCurrency(Math.round(calculateRunningAverage(results)))}`
+                                        ? `${calculateRunningAverage(results) >= 0 ? "+" : ""}${formatCurrency(Math.round(calculateRunningAverage(results)), selectedCurrency)}`
                                         : "No Data"}
                                     </span>
                                   </div>
@@ -3660,13 +3313,13 @@ const Index = () => {
                         <div className="flex justify-between">
                           <span>Total Wagered:</span>
                           <span className="font-mono">
-                            {formatCurrency(finalStats.totalWagered)}
+                            {formatCurrency(finalStats.totalWagered, "MAD")}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Max Drawdown:</span>
                           <span className="font-mono text-red-400">
-                            {formatCurrency(finalStats.maxDrawdown)}
+                            {formatCurrency(finalStats.maxDrawdown, selectedCurrency)}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -3998,8 +3651,9 @@ const Index = () => {
                                   getValue: (results: SpinResult[]) =>
                                     formatCurrency(
                                       STARTING_PORTFOLIO +
-                                        results[results.length - 1]
-                                          ?.cumulativeEarnings || 0,
+                                        (results[results.length - 1]
+                                          ?.cumulativeEarnings || 0),
+                                      selectedCurrency,
                                     ),
                                 },
                                 {
@@ -4016,8 +3670,8 @@ const Index = () => {
                                   label: "Total Earnings",
                                   getValue: (results: SpinResult[]) =>
                                     formatCurrency(
-                                      results[results.length - 1]
-                                        ?.cumulativeEarnings || 0,
+                                      results[results.length - 1]?.cumulativeEarnings || 0,
+                                      selectedCurrency,
                                     ),
                                 },
                                 {
@@ -4034,10 +3688,9 @@ const Index = () => {
                                   getValue: (results: SpinResult[]) =>
                                     formatCurrency(
                                       Math.min(
-                                        ...results.map(
-                                          (r) => r.cumulativeEarnings,
-                                        ),
+                                        ...results.map((r) => r.cumulativeEarnings),
                                       ),
+                                      selectedCurrency,
                                     ),
                                 },
                                 {
@@ -4052,12 +3705,12 @@ const Index = () => {
                                         ),
                                       0,
                                     );
-                                    return formatCurrency(total);
+                                    return formatCurrency(total, selectedCurrency);
                                   },
                                 },
                               ].map((metric, index) => (
                                 <tr
-                                  key={index}
+                                  key={`metric-${index}`}
                                   className="border-b border-slate-700/50"
                                 >
                                   <td className="p-2 font-medium text-slate-300">

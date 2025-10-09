@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { apiGet } from "@/lib/api";
+import { apiGetSimulations, SimulationRow } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,17 +11,18 @@ import {
 } from "@/components/ui/table";
 
 export function BackendSimulationsPreview() {
-  const [sims, setSims] = useState<any[] | null>(null);
+  const [sims, setSims] = useState<SimulationRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const data = await apiGet<any[]>("/api/simulations");
+        const data = await apiGetSimulations();
         if (mounted) setSims(data);
-      } catch (e: any) {
-        if (mounted) setError(e?.message || "Failed to load simulations");
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Failed to load simulations";
+        if (mounted) setError(message);
       }
     })();
     return () => {
@@ -58,7 +59,7 @@ export function BackendSimulationsPreview() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sims.slice(0, 5).map((s: any) => (
+                  {sims.slice(0, 5).map((s: SimulationRow) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.id}</TableCell>
                       <TableCell>{s.strategy}</TableCell>

@@ -1,7 +1,7 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
+import { initializeApp, FirebaseApp } from "firebase/app";
+import { getAuth, Auth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getAnalytics, Analytics } from "firebase/analytics";
 
 // Firebase configuration - replace with your actual config
 const firebaseConfig = {
@@ -20,9 +20,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app: any;
-let auth: any;
-let db: any;
+let app: FirebaseApp | undefined;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
 
 const isDemoMode = firebaseConfig.apiKey === "demo-api-key";
 
@@ -32,12 +32,8 @@ if (isDemoMode) {
     "To enable real authentication, replace the Firebase config in .env with your actual project settings",
   );
 
-  // Create mock auth object for demo mode
-  auth = {
-    currentUser: null,
-    config: { emulator: null },
-    onAuthStateChanged: () => () => {}, // Mock unsubscribe function
-  };
+  // In demo mode, do not initialize Firebase services
+  auth = null;
   db = null;
 } else {
   try {
@@ -52,18 +48,14 @@ if (isDemoMode) {
     db = getFirestore(app);
 
     console.log("Firebase initialized successfully");
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Firebase initialization failed:", error);
     console.warn(
       "Running in offline mode - authentication and cloud storage disabled",
     );
 
-    // Create mock objects to prevent app breakage
-    auth = {
-      currentUser: null,
-      config: { emulator: null },
-      onAuthStateChanged: () => () => {},
-    };
+    // Keep auth and db as null to indicate unavailable services
+    auth = null;
     db = null;
   }
 }
@@ -71,9 +63,9 @@ if (isDemoMode) {
 export { auth, db, isDemoMode };
 
 // Initialize Analytics only in production and with consent
-let analytics: any = null;
+let analytics: Analytics | null = null;
 export const getAnalyticsInstance = () => {
-  if (typeof window !== "undefined" && import.meta.env.PROD) {
+  if (typeof window !== "undefined" && import.meta.env.PROD && app) {
     if (!analytics) {
       analytics = getAnalytics(app);
     }
@@ -100,15 +92,10 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
     );
   }
 
-  // Don't connect to emulators in production-like cloud environments
+  // Only attempt emulator connection in true local development
   if (!isRestrictedEnvironment) {
     try {
-      // Only connect to emulators in true local development
-      if (
-        auth &&
-        !auth.config?.emulator?.url &&
-        window.location.hostname === "localhost"
-      ) {
+      if (auth && window.location.hostname === "localhost") {
         console.log(
           "Local development detected, attempting emulator connection...",
         );
@@ -117,7 +104,7 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
       } else {
         console.log("Using production Firebase services");
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.log("Firebase emulator connection skipped:", error);
     }
   }

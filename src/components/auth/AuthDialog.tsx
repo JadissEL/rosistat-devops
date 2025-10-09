@@ -63,7 +63,7 @@ export function AuthDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetEmailSent, setResetEmailSent] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [activeTab, setActiveTab] = useState<"signin" | "signup" | "reset">(defaultTab);
 
   const signInForm = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
@@ -95,8 +95,14 @@ export function AuthDialog({
 
       onOpenChange(false);
       signInForm.reset();
-    } catch (error: any) {
-      setError(error.message || "Failed to sign in");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : "Failed to sign in";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -117,8 +123,14 @@ export function AuthDialog({
 
       onOpenChange(false);
       signUpForm.reset();
-    } catch (error: any) {
-      setError(error.message || "Failed to create account");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : "Failed to create account";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -140,15 +152,23 @@ export function AuthDialog({
       });
 
       resetPasswordForm.reset();
-    } catch (error: any) {
-      setError(error.message || "Failed to send reset email");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : "Failed to send reset email";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleTabChange = (value: string) => {
+    if (value === "signin" || value === "signup" || value === "reset") {
     setActiveTab(value);
+    }
     setError("");
     setResetEmailSent(false);
   };

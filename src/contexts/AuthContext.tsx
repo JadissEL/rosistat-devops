@@ -14,6 +14,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
 } from "firebase/auth";
+import { FirebaseError } from "firebase/app";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db, isDemoMode } from "@/lib/firebase";
 import { AuthFallback, MockUser } from "@/utils/authFallback";
@@ -129,12 +130,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUserProfile(profile);
         console.log("User profile created in Firestore");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Sign up error:", error);
 
+      const code = typeof (error as FirebaseError).code === "string" ? (error as FirebaseError).code : undefined;
+      const message = typeof (error as Error).message === "string" ? (error as Error).message : undefined;
+
       if (
-        error.message?.includes("Failed to fetch") ||
-        error.code === "auth/network-request-failed"
+        (message && message.includes("Failed to fetch")) ||
+        code === "auth/network-request-failed"
       ) {
         console.warn("Firebase unavailable, offering demo mode fallback...");
 
@@ -161,19 +165,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
             "Network error: Unable to connect to Firebase servers. Please check your internet connection. If you're in a restricted environment, authentication may not be available.",
           );
         }
-      } else if (error.code === "auth/email-already-in-use") {
+      } else if (code === "auth/email-already-in-use") {
         throw new Error(
           "An account with this email already exists. Please try signing in instead.",
         );
-      } else if (error.code === "auth/weak-password") {
+      } else if (code === "auth/weak-password") {
         throw new Error(
           "Password is too weak. Please choose a stronger password with at least 6 characters.",
         );
-      } else if (error.code === "auth/invalid-email") {
+      } else if (code === "auth/invalid-email") {
         throw new Error("Invalid email address. Please enter a valid email.");
       } else {
         throw new Error(
-          `Sign up failed: ${error.message || "Unknown error occurred"}`,
+          `Sign up failed: ${message || "Unknown error occurred"}`,
         );
       }
     }
@@ -219,29 +223,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log("Attempting to sign in user...");
       await signInWithEmailAndPassword(auth, email, password);
       console.log("User signed in successfully");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Sign in error:", error);
 
+      const code = typeof (error as FirebaseError).code === "string" ? (error as FirebaseError).code : undefined;
+      const message = typeof (error as Error).message === "string" ? (error as Error).message : undefined;
+
       if (
-        error.message?.includes("Failed to fetch") ||
-        error.code === "auth/network-request-failed"
+        (message && message.includes("Failed to fetch")) ||
+        code === "auth/network-request-failed"
       ) {
         throw new Error(
           "Network error: Unable to connect to Firebase servers. Please check your internet connection or try again later.",
         );
-      } else if (error.code === "auth/user-not-found") {
+      } else if (code === "auth/user-not-found") {
         throw new Error(
           "No account found with this email address. Please sign up first.",
         );
-      } else if (error.code === "auth/wrong-password") {
+      } else if (code === "auth/wrong-password") {
         throw new Error("Incorrect password. Please try again.");
-      } else if (error.code === "auth/invalid-email") {
+      } else if (code === "auth/invalid-email") {
         throw new Error("Invalid email address.");
-      } else if (error.code === "auth/too-many-requests") {
+      } else if (code === "auth/too-many-requests") {
         throw new Error("Too many failed attempts. Please try again later.");
       } else {
         throw new Error(
-          `Sign in failed: ${error.message || "Unknown error occurred"}`,
+          `Sign in failed: ${message || "Unknown error occurred"}`,
         );
       }
     }
