@@ -20,25 +20,27 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          vercel pull --yes --environment=production --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+          vercel pull --yes --environment=production --project "$VERCEL_PROJECT_ID" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
       - name: Configure VITE_API_BASE for Preview & Production
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VITE_API_BASE_PREVIEW: ${{ secrets.VITE_API_BASE_PREVIEW }}
           VITE_API_BASE_PRODUCTION: ${{ secrets.VITE_API_BASE_PRODUCTION }}
         run: |
           # Remove existing variables (ignore errors if not present)
-          vercel env rm VITE_API_BASE preview --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
-          vercel env rm VITE_API_BASE production --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
+          vercel env rm VITE_API_BASE preview --yes --project "$VERCEL_PROJECT_ID" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
+          vercel env rm VITE_API_BASE production --yes --project "$VERCEL_PROJECT_ID" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
 
           # Add new values from secrets
-          echo "$VITE_API_BASE_PREVIEW" | vercel env add VITE_API_BASE preview --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
-          echo "$VITE_API_BASE_PRODUCTION" | vercel env add VITE_API_BASE production --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+          echo "$VITE_API_BASE_PREVIEW" | vercel env add VITE_API_BASE preview --project "$VERCEL_PROJECT_ID" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+          echo "$VITE_API_BASE_PRODUCTION" | vercel env add VITE_API_BASE production --project "$VERCEL_PROJECT_ID" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
 
       - name: Show configured envs
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          vercel env ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+          vercel env ls --project "$VERCEL_PROJECT_ID" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
