@@ -50,6 +50,26 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", env: process.env.NODE_ENV || "development", dbReady });
 });
 
+// Editor endpoint (mock implementation)
+app.post("/api/editor", async (req, res) => {
+  try {
+    const { prompt } = req.body as { prompt?: string } | undefined;
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "Missing or invalid 'prompt' in request body" });
+    }
+
+    // Simple mock processing: echo and simulate a small processing time
+    await new Promise((r) => setTimeout(r, 150));
+    const processed = `Processed: ${prompt}`;
+
+    return res.json({ text: processed });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("/api/editor error:", message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Users (minimal for demo)
 app.get("/api/users/:uid", async (req, res) => {
   try {
