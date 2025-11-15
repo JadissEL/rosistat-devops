@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rosistat-webhook
+  namespace: rosistat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rosistat-webhook
+  template:
+    metadata:
+      labels:
+        app: rosistat-webhook
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 2000
+      containers:
+        - name: echo-server
+          image: mendhak/http-https-echo:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rosistat-webhook
+  namespace: rosistat
+spec:
+  selector:
+    app: rosistat-webhook
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rosistat-webhook
+  namespace: rosistat
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-Frame-Options "DENY" always;
+      add_header Referrer-Policy "no-referrer" always;
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rosistat-webhook.localtest.me
+      secretName: rosistat-webhook-tls
+  rules:
+    - host: rosistat-webhook.localtest.me
+      http:
+        paths:
+          - path: /alert
+            pathType: Prefix
+            backend:
+              service:
+                name: rosistat-webhook
+                port:
+                  number: 80

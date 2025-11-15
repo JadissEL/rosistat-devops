@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: rosistat-quota
+  namespace: rosistat
+spec:
+  hard:
+    requests.cpu: "1000m"
+    requests.memory: "2Gi"
+    limits.cpu: "2000m"
+    limits.memory: "4Gi"
+    pods: "20"
+    persistentvolumeclaims: "10"
+    services: "10"
+    configmaps: "20"
+    secrets: "50"

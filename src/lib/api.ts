@@ -1,7 +1,30 @@
 // Centralized API helper for frontend
-// Uses Vite env var VITE_API_BASE to prefix API calls
+// Uses Vite env var VITE_API_BASE to prefix API calls, with optional runtime override via localStorage
 
-export const API_BASE: string = import.meta.env?.VITE_API_BASE ?? "";
+const API_LOCAL_STORAGE_KEY = "API_BASE_OVERRIDE";
+
+export function getApiBase(): string {
+  try {
+    const override = typeof window !== "undefined" ? localStorage.getItem(API_LOCAL_STORAGE_KEY) : null;
+    return (override ?? (import.meta as any)?.env?.VITE_API_BASE ?? "") as string;
+  } catch {
+    // Fallback to env if localStorage unavailable
+    return ((import.meta as any)?.env?.VITE_API_BASE ?? "") as string;
+  }
+}
+
+export function setApiBaseOverride(base?: string) {
+  try {
+    if (typeof window === "undefined") return;
+    if (base && base.trim().length > 0) {
+      localStorage.setItem(API_LOCAL_STORAGE_KEY, base.trim());
+    } else {
+      localStorage.removeItem(API_LOCAL_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
 
 // Typed API shapes based on backend/dao.ts and endpoints
 export interface SimulationRow {
@@ -41,9 +64,10 @@ export interface GetSimulationWithSpinsResponse {
 }
 
 function buildUrl(path: string): string {
-  if (!API_BASE) return path; // allow relative paths if not configured
+  const base = getApiBase();
+  if (!base) return path; // allow relative paths if not configured
   const slash = path.startsWith("/") ? "" : "/";
-  return `${API_BASE}${slash}${path}`;
+  return `${base}${slash}${path}`;
 }
 
 export async function apiGet<T = unknown>(path: string, init?: RequestInit): Promise<T> {

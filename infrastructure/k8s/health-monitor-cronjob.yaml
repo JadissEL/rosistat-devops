@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rosistat-health-monitor
+  namespace: rosistat
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+          containers:
+            - name: curl
+              image: curlimages/curl:8.4.0
+              imagePullPolicy: IfNotPresent
+              resources:
+                requests:
+                  cpu: "20m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "64Mi"
+              env:
+                - name: WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: rosistat-webhook
+                      key: url
+                      optional: true
+              command: ["/bin/sh","-c"]
+              args:
+                - |
+                  URL="http://rosistat-backend/api/health"
+                  ATTEMPTS=3
+                  DELAY=10
+                  i=1
+                  while [ $i -le $ATTEMPTS ]; do
+                    STATUS=$(curl -sS -m 5 -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+                    if [ "$STATUS" = "200" ]; then
+                      echo "[Monitor] Health OK ($STATUS) for $URL"
+                      exit 0
+                    fi
+                    echo "[Monitor] Attempt $i FAILED ($STATUS) for $URL, retrying in ${DELAY}s..."
+                    i=$((i+1))
+                    sleep $DELAY
+                  done
+                  echo "[Monitor] Health check FAILED after $ATTEMPTS attempts for $URL"
+                  if [ -n "$WEBHOOK_URL" ]; then
+                    ALERT_STATUS=$(curl -sS -k -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "{\"text\":\"rosistat-backend health check failed after $ATTEMPTS attempts\"}" "$WEBHOOK_URL" || echo "000")
+                    echo "[Monitor] Alert POST returned $ALERT_STATUS"
+                  fi
+                  exit 1

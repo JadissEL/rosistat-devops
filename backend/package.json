@@ -10,12 +10,16 @@
     "test:smoke": "node test-backend-logic.js && node test-exact-backend.js && node test-backend-get.js && node test-sync-backend.js"
   },
   "dependencies": {
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.1.0",
+    "helmet": "^7.0.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
     "@types/node": "^22.5.5",

@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rosistat-backend-pdb
+  namespace: rosistat
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: rosistat-backend

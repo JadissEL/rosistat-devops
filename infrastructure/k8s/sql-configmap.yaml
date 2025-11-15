@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rosistat-sql
+  namespace: rosistat
+data:
+  001_init.sql: |
+    -- Initial schema for RoSiStrat (Rosistat) SQLite
+    PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS users (
+      uid TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      displayName TEXT NOT NULL,
+      startingInvestment INTEGER NOT NULL DEFAULT 10000,
+      createdAt TEXT NOT NULL,
+      lastLoginAt TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS simulations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId TEXT NULL,
+      strategy TEXT NOT NULL,
+      startingInvestment INTEGER NOT NULL,
+      finalEarnings INTEGER NOT NULL,
+      finalPortfolio INTEGER NOT NULL,
+      totalSpins INTEGER NOT NULL,
+      settings TEXT NOT NULL, -- JSON
+      timestamp TEXT NOT NULL,
+      FOREIGN KEY (userId) REFERENCES users(uid) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_simulations_user ON simulations(userId);
+    CREATE INDEX IF NOT EXISTS idx_simulations_time ON simulations(timestamp);
+  002_spins.sql: |
+    -- Add simulation_spins table to store per-spin results (normalized)
+    PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS simulation_spins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      simulationId INTEGER NOT NULL,
+      spinNumber INTEGER NOT NULL,
+      drawnNumber INTEGER NOT NULL,
+      spinNetResult INTEGER NOT NULL,
+      cumulativeEarnings INTEGER NOT NULL,
+      raw JSON NOT NULL,
+      FOREIGN KEY (simulationId) REFERENCES simulations(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_spins_simulation ON simulation_spins(simulationId);
+    CREATE INDEX IF NOT EXISTS idx_spins_number ON simulation_spins(spinNumber);
+    CREATE INDEX IF NOT EXISTS idx_simulations_userId ON simulations(userId);
+    CREATE INDEX IF NOT EXISTS idx_simulations_timestamp ON simulations(timestamp);
+  001_seed.sql: |
+    -- Seed demo data
+    INSERT OR IGNORE INTO users (uid, email, displayName, startingInvestment, createdAt, lastLoginAt)
+    VALUES (
+      'demo_0001',
+      'demo@rosistrat.com',
+      'Demo User',
+      10000,
+      strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+      strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    );
+
+    INSERT INTO simulations (userId, strategy, startingInvestment, finalEarnings, finalPortfolio, totalSpins, settings, timestamp)
+    VALUES (
+      'demo_0001',
+      'standard_martingale',
+      10000,
+      250,
+      10250,
+      200,
+      json('{"notes":"seed example"}'),
+      strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    );
+
+    -- Insert demo spins for the simulation (include raw JSON for NOT NULL constraint)
+    INSERT INTO simulation_spins (simulationId, spinNumber, drawnNumber, spinNetResult, cumulativeEarnings, raw)
+    SELECT 
+      s.id,
+      (t.value + 1) as spinNumber,
+      (ABS(RANDOM()) % 37) as drawnNumber,
+      CASE 
+        WHEN (ABS(RANDOM()) % 2) = 0 THEN 100 
+        ELSE -100 
+      END as spinNetResult,
+      (t.value + 1) * 50 as cumulativeEarnings,
+      json('{"source":"seed","note":"demo spin"}') as raw
+    FROM simulations s
+    CROSS JOIN (
+      SELECT value FROM (
+        SELECT 0 as value UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION
+        SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION
+        SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION
+        SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19 UNION
+        SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24 UNION
+        SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29 UNION
+        SELECT 30 UNION SELECT 31 UNION SELECT 32 UNION SELECT 33 UNION SELECT 34 UNION
+        SELECT 35 UNION SELECT 36 UNION SELECT 37 UNION SELECT 38 UNION SELECT 39 UNION
+        SELECT 40 UNION SELECT 41 UNION SELECT 42 UNION SELECT 43 UNION SELECT 44 UNION
+        SELECT 45 UNION SELECT 46 UNION SELECT 47 UNION SELECT 48 UNION SELECT 49 UNION
+        SELECT 50 UNION SELECT 51 UNION SELECT 52 UNION SELECT 53 UNION SELECT 54 UNION
+        SELECT 55 UNION SELECT 56 UNION SELECT 57 UNION SELECT 58 UNION SELECT 59 UNION
+        SELECT 60 UNION SELECT 61 UNION SELECT 62 UNION SELECT 63 UNION SELECT 64 UNION
+        SELECT 65 UNION SELECT 66 UNION SELECT 67 UNION SELECT 68 UNION SELECT 69 UNION
+        SELECT 70 UNION SELECT 71 UNION SELECT 72 UNION SELECT 73 UNION SELECT 74 UNION
+        SELECT 75 UNION SELECT 76 UNION SELECT 77 UNION SELECT 78 UNION SELECT 79 UNION
+        SELECT 80 UNION SELECT 81 UNION SELECT 82 UNION SELECT 83 UNION SELECT 84 UNION
+        SELECT 85 UNION SELECT 86 UNION SELECT 87 UNION SELECT 88 UNION SELECT 89 UNION
+        SELECT 90 UNION SELECT 91 UNION SELECT 92 UNION SELECT 93 UNION SELECT 94 UNION
+        SELECT 95 UNION SELECT 96 UNION SELECT 97 UNION SELECT 98 UNION SELECT 99
+      ) LIMIT 100
+    ) t
+    WHERE s.userId = 'demo_0001' AND s.strategy = 'standard_martingale';
