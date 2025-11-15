@@ -41,6 +41,7 @@ import {
 import { StrategyExplanationModal } from "@/components/simulation/StrategyExplanationModal";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { Editor } from "@/components/Editor";
 import { SimulationService, type GenericSpinResult, type SimulationResult } from "@/services/simulationService";
 import {
   Play,
@@ -1788,6 +1789,11 @@ const Index = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Editor Block (integration du composant éditeur) */}
+        <div className="mb-8 max-w-4xl mx-auto">
+          <Editor />
         </div>
 
         {/* Strategy Selection */}
