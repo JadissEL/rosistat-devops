@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "npm run dev:compiled",
     "dev:compiled": "npm run build && node --watch dist/index.js",
+    "dev:fallback": "npm run build && node dist/index.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "start:prod": "node dist/index.js",
@@ -23,8 +24,10 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.5.5",
     "@types/sqlite3": "^3.1.11",
+    "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.3"
   }
 }
