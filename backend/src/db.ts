@@ -7,8 +7,16 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// From compiled dist (backend/dist), go up to repo root then database/
-const DEFAULT_DB_PATH = process.env.DB_FILE || path.resolve(__dirname, "../../../database/rosistat.db");
+// Default DB path: prefer explicit env var, otherwise use repository-relative database/rosistat.db
+// Use process.cwd() so running from project root resolves to <repo>/database/rosistat.db
+const DEFAULT_DB_PATH = process.env.DB_FILE || path.resolve(process.cwd(), "database", "rosistat.db");
+
+// Debug info about which DB path is used
+if (!process.env.DB_FILE) {
+  console.log(`[DB] No DB_FILE env set, using repo-relative default: ${DEFAULT_DB_PATH}`);
+} else {
+  console.log(`[DB] Using DB_FILE from env: ${process.env.DB_FILE}`);
+}
 
 export function createDbConnection(dbFile: string = DEFAULT_DB_PATH) {
   const dir = path.dirname(dbFile);
