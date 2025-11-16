@@ -41,7 +41,7 @@ import {
 import { StrategyExplanationModal } from "@/components/simulation/StrategyExplanationModal";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
-// ...existing code...
+
 import { SimulationService, type GenericSpinResult, type SimulationResult } from "@/services/simulationService";
 import {
   Play,
@@ -1791,7 +1791,7 @@ const Index = () => {
           </div>
         </div>
 
-        // ...existing code...
+
 
         {/* Strategy Selection */}
         <Card
