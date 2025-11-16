@@ -32,8 +32,8 @@ export function AgeVerificationModal() {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-center">
           <DialogTitle className="flex items-center justify-center gap-2 text-xl">
             <ShieldCheck className="h-6 w-6 text-blue-500" />

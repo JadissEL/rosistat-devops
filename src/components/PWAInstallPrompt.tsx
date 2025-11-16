@@ -8,6 +8,13 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+// Extend Navigator interface for iOS standalone property
+declare global {
+  interface Navigator {
+    standalone?: boolean;
+  }
+}
+
 export function PWAInstallPrompt() {
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);

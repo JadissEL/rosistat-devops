@@ -7,10 +7,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: "1m"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      add_header X-Content-Type-Options "nosniff" always;
-      add_header X-Frame-Options "DENY" always;
-      add_header Referrer-Policy "no-referrer" always;
+    kubernetes.io/ingress.class: nginx
     # Removed rewrite since backend already serves /api/*; simpler path avoids 503 from misconfigured regex
 spec:
   ingressClassName: nginx
