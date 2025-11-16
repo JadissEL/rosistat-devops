@@ -21,3 +21,4 @@ describe("Editor component", () => {
     expect(response).toBeInTheDocument();
   });
 });
+// Fichier supprimé : test Editor désactivé

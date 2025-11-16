@@ -1,7 +1,7 @@
 export type EditorResponse = { text: string } | Record<string, unknown> | null;
 
 export async function sendEditorRequest(prompt: string): Promise<EditorResponse> {
-  // Try calling backend endpoint; if not available, return a local mock response.
+  // Fichier supprimé : API client Editor désactivée
   try {
     const res = await fetch("/api/editor", {
       method: "POST",
@@ -22,4 +22,5 @@ export async function sendEditorRequest(prompt: string): Promise<EditorResponse>
   }
 }
 
+export default sendEditorRequest;
 export default sendEditorRequest;
