@@ -71,14 +71,24 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", env: process.env.NODE_ENV || "development", dbReady });
 });
 
-// Add explicit readiness and liveness endpoints for orchestrators like Kubernetes
-app.get("/api/ready", (_req, res) => {
-  if (dbReady) return res.status(200).json({ ready: true });
-  return res.status(503).json({ ready: false });
-});
+// Editor endpoint (mock implementation)
+app.post("/api/editor", async (req, res) => {
+  try {
+    const { prompt } = req.body as { prompt?: string } | undefined;
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "Missing or invalid 'prompt' in request body" });
+    }
 
-app.get("/api/live", (_req, res) => {
-  res.status(200).json({ live: true });
+    // Simple mock processing: echo and simulate a small processing time
+    await new Promise((r) => setTimeout(r, 150));
+    const processed = `Processed: ${prompt}`;
+
+    return res.json({ text: processed });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("/api/editor error:", message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // Users (minimal for demo)
