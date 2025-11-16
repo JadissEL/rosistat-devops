@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { sendEditorRequest } from "@/lib/editorApi";
+import { sendEditorRequest } from "../lib/editorApi";
 
 export function Editor(): JSX.Element {
   const [prompt, setPrompt] = useState("");

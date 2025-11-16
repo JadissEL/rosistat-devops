@@ -10,7 +10,7 @@ import {
   GetSimulationWithSpinsResponse,
   SpinRow,
   SpinsStats,
-} from "@/lib/api";
+} from "../lib/api";
 
 /**
  * React Query hooks for simulations API

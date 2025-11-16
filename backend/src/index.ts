@@ -74,7 +74,8 @@ app.get("/api/health", (_req, res) => {
 // Editor endpoint (mock implementation)
 app.post("/api/editor", async (req, res) => {
   try {
-    const { prompt } = req.body as { prompt?: string } | undefined;
+    const body = req.body;
+    const prompt = body && typeof body === "object" && "prompt" in body ? (body as { prompt?: string }).prompt : undefined;
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Missing or invalid 'prompt' in request body" });
     }

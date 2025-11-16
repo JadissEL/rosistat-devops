@@ -9,8 +9,8 @@ import {
   useInvalidateSimulations,
   useCachedSimulation,
   useCachedSimulations,
-} from "@/hooks/useSimulations";
-import * as api from "@/lib/api";
+} from "../hooks/useSimulations";
+import * as api from "../lib/api";
 
 /**
  * React Query Hooks Validation Suite

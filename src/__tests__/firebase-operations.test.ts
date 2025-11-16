@@ -10,8 +10,8 @@ import {
   orderBy,
   Timestamp,
 } from "firebase/firestore";
-import { SimulationService, SimulationResult } from "@/services/simulationService";
-import { db, isDemoMode } from "@/lib/firebase";
+import { SimulationService, SimulationResult } from "../services/simulationService";
+import { db, isDemoMode } from "../lib/firebase";
 
 // Mock Firebase Firestore
 vi.mock("firebase/firestore", () => ({
