@@ -17,6 +17,7 @@ import {
   generateSpins,
   NOVIBET_COMPOUND_STRATEGIES,
   NOVIBET_EUROPEAN_TABLE,
+  NOVIBET_ROBUST_DEFAULTS,
   runNovibetCompoundSimulation,
   type NovibetSpinRow,
 } from "./index/novibetCompoundEngine";
@@ -37,11 +38,20 @@ export default function NovibetCompound() {
     if (rows.length === 0) return null;
     const last = rows[rows.length - 1];
     const hitMaxSpins = rows.filter((r) => r.hitMaxIds.length > 0).length;
+    const pausedSpins = rows.filter((r) => r.skippedIds.length > 0).length;
     const wiped = last.portfolio < NOVIBET_EUROPEAN_TABLE.minBet;
+    const maxDd = rows.reduce((m, r) => {
+      const dd = r.peak - r.portfolio;
+      return dd > m ? dd : m;
+    }, 0);
     return {
       finalPortfolio: last.portfolio,
       finalPnl: last.cumulativeEarnings,
+      floor: last.floor,
+      peak: last.peak,
       hitMaxSpins,
+      pausedSpins,
+      maxDd,
       wiped,
     };
   }, [rows]);
@@ -54,6 +64,7 @@ export default function NovibetCompound() {
     const result = runNovibetCompoundSimulation({
       spins,
       startingCredit: credit,
+      robust: NOVIBET_ROBUST_DEFAULTS,
     });
     setRows(result);
     setRunning(false);
@@ -64,24 +75,23 @@ export default function NovibetCompound() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-8 space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-400">
-              <Link to="/" className="underline hover:text-white">
-                ← All strategies
-              </Link>
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-              Novibet Compound (EUR)
-            </h1>
-            <p className="mt-1 text-sm text-slate-400 max-w-xl">
-              European roulette · single zero · full loss on 0. Chip €
-              {NOVIBET_EUROPEAN_TABLE.minChip} · straight max €
-              {NOVIBET_EUROPEAN_TABLE.maxStraightUp} · dozen max €
-              {NOVIBET_EUROPEAN_TABLE.maxDozen} · even-money max €
-              {NOVIBET_EUROPEAN_TABLE.maxEvenMoney}.
-            </p>
-          </div>
+        <div>
+          <p className="text-sm text-slate-400">
+            <Link to="/" className="underline hover:text-white">
+              ← All strategies
+            </Link>
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+            Novibet Compound · Robust (EUR)
+          </h1>
+          <p className="mt-1 text-sm text-slate-400 max-w-2xl">
+            Same five-spot layout with lower risk and locked gains: 1.5×
+            progression, streak reset at {NOVIBET_ROBUST_DEFAULTS.maxLossStreak}
+            , safety pause {NOVIBET_ROBUST_DEFAULTS.safetyRatio}×,{" "}
+            {(NOVIBET_ROBUST_DEFAULTS.riskBudgetPct * 100).toFixed(0)}% risk
+            budget, {(NOVIBET_ROBUST_DEFAULTS.profitLockPct * 100).toFixed(0)}%
+            profit lock into floor. European single-zero (full loss on 0).
+          </p>
         </div>
 
         <Card className="border-slate-800 bg-slate-900/80">
@@ -117,17 +127,25 @@ export default function NovibetCompound() {
               </div>
             </div>
 
-            <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">
-              Base layout per spin:{" "}
-              {NOVIBET_COMPOUND_STRATEGIES.map(
-                (s) => `${s.name} €${s.initialBet}`,
-              ).join(" · ")}{" "}
-              (≈ €
-              {NOVIBET_COMPOUND_STRATEGIES.reduce(
-                (a, s) => a + s.initialBet,
-                0,
-              )}{" "}
-              before doubles). Currency fixed: EUR.
+            <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400 space-y-1">
+              <p>
+                Base layout:{" "}
+                {NOVIBET_COMPOUND_STRATEGIES.map(
+                  (s) => `${s.name} €${s.initialBet}`,
+                ).join(" · ")}{" "}
+                (≈ €
+                {NOVIBET_COMPOUND_STRATEGIES.reduce(
+                  (a, s) => a + s.initialBet,
+                  0,
+                )}
+                ).
+              </p>
+              <p>
+                Soft max {NOVIBET_ROBUST_DEFAULTS.softMaxMultiplier}× base ·
+                pause 0 on ≥
+                {(NOVIBET_ROBUST_DEFAULTS.pauseZeroDrawdownPct * 100).toFixed(0)}
+                % drawdown · table chip €{NOVIBET_EUROPEAN_TABLE.minChip}.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -148,7 +166,7 @@ export default function NovibetCompound() {
         </Card>
 
         {summary && (
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Card className="border-slate-800 bg-slate-900/80">
               <CardContent className="pt-4">
                 <p className="text-xs text-slate-400">Final portfolio</p>
@@ -171,15 +189,33 @@ export default function NovibetCompound() {
             </Card>
             <Card className="border-slate-800 bg-slate-900/80">
               <CardContent className="pt-4">
-                <p className="text-xs text-slate-400">Spins hitting table max</p>
-                <p className="text-lg font-semibold">{summary.hitMaxSpins}</p>
+                <p className="text-xs text-slate-400">Locked floor</p>
+                <p className="text-lg font-semibold">
+                  {EUR.format(summary.floor)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-800 bg-slate-900/80">
+              <CardContent className="pt-4">
+                <p className="text-xs text-slate-400">Peak</p>
+                <p className="text-lg font-semibold">
+                  {EUR.format(summary.peak)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-800 bg-slate-900/80">
+              <CardContent className="pt-4">
+                <p className="text-xs text-slate-400">Max drawdown</p>
+                <p className="text-lg font-semibold">
+                  {EUR.format(summary.maxDd)}
+                </p>
               </CardContent>
             </Card>
             <Card className="border-slate-800 bg-slate-900/80">
               <CardContent className="pt-4">
                 <p className="text-xs text-slate-400">Status</p>
                 <p className="text-lg font-semibold">
-                  {summary.wiped ? "Below min bet" : "Active"}
+                  {summary.wiped ? "Below min" : "Protected"}
                 </p>
               </CardContent>
             </Card>
@@ -189,7 +225,10 @@ export default function NovibetCompound() {
         {rows.length > 0 && (
           <Card className="border-slate-800 bg-slate-900/80">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Spin results</CardTitle>
+              <CardTitle className="text-base">
+                Spin results · pauses {summary?.pausedSpins ?? 0} · max hits{" "}
+                {summary?.hitMaxSpins ?? 0}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[420px]">
@@ -201,6 +240,7 @@ export default function NovibetCompound() {
                       <TableHead>Staked</TableHead>
                       <TableHead>Net</TableHead>
                       <TableHead>Portfolio</TableHead>
+                      <TableHead>Floor</TableHead>
                       <TableHead>Flags</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -220,6 +260,9 @@ export default function NovibetCompound() {
                           {EUR.format(r.spinNetResult)}
                         </TableCell>
                         <TableCell>{EUR.format(r.portfolio)}</TableCell>
+                        <TableCell className="text-slate-400">
+                          {EUR.format(r.floor)}
+                        </TableCell>
                         <TableCell className="text-xs text-slate-400">
                           {r.hitMaxIds.length
                             ? `max:${r.hitMaxIds.join(",")}`
