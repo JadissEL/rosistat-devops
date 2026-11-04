@@ -62,3 +62,67 @@ export const MAX_LOSE_STRATEGIES = [
   { id: "even", name: "Even", initialBet: 18, betType: "even_odd" as const, target: "even", winMultiplier: 2 },
   { id: "zero", name: "Number 0", initialBet: 1, betType: "single" as const, target: 0, winMultiplier: 36 },
 ];
+
+/**
+ * Compound layout with realistic EUR chip sizes for a typical Novibet /
+ * Evolution European mid-tier table (€0.20 chip tray). Same five targets;
+ * base ~€31/spin. maxBet = Evolution-style per-spot caps.
+ */
+export const NOVIBET_COMPOUND_STRATEGIES: CompoundMartingaleConfig[] = [
+  {
+    id: "zero",
+    name: "Number 0",
+    initialBet: 1,
+    betType: "single",
+    target: 0,
+    progression: "custom",
+    winMultiplier: 36,
+    customProgression: [1, 2, 4, 5, 6, 8, 10, 20, 40, 80, 100],
+    resetOnWin: true,
+    maxBet: 100,
+  },
+  {
+    id: "first_dozen",
+    name: "1st Dozen (1-12)",
+    initialBet: 5,
+    betType: "dozen",
+    target: "1-12",
+    progression: "martingale",
+    winMultiplier: 3,
+    resetOnWin: true,
+    maxBet: 1000,
+  },
+  {
+    id: "second_dozen",
+    name: "2nd Dozen (13-24)",
+    initialBet: 5,
+    betType: "dozen",
+    target: "13-24",
+    progression: "martingale",
+    winMultiplier: 3,
+    resetOnWin: true,
+    maxBet: 1000,
+  },
+  {
+    id: "black",
+    name: "Black",
+    initialBet: 10,
+    betType: "color",
+    target: "black",
+    progression: "martingale",
+    winMultiplier: 2,
+    resetOnWin: true,
+    maxBet: 2500,
+  },
+  {
+    id: "even",
+    name: "Even",
+    initialBet: 10,
+    betType: "even_odd",
+    target: "even",
+    progression: "martingale",
+    winMultiplier: 2,
+    resetOnWin: true,
+    maxBet: 2500,
+  },
+];

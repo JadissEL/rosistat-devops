@@ -13,7 +13,8 @@ export type StrategyType =
   | "zapping"
   | "safe_compound_martingale"
   | "sam_plus"
-  | "standard_martingale";
+  | "standard_martingale"
+  | "novibet_compound";
 
 export interface CompoundMartingaleConfig {
   id: string;

@@ -8,6 +8,7 @@ import { CookieProvider } from "@/contexts/CookieContext";
 import { CookieConsentBanner } from "@/components/privacy/CookieConsentBanner";
 import { AgeVerificationModal } from "@/components/privacy/AgeVerificationModal";
 import Index from "./pages/Index";
+import NovibetCompound from "./pages/NovibetCompound";
 import About from "./pages/About";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
@@ -25,6 +26,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/novibet" element={<NovibetCompound />} />
               <Route path="/about" element={<About />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfUse />} />
