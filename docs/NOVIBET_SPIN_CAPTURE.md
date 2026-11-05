@@ -1,12 +1,30 @@
 # Novibet / Evolution spin capture (paper-trade only)
 
-RoSiStrat **never places bets** on Novibet. This flow only reads winning numbers and `POST`s them to the local backend so `/novibet` can paper-trade the robust Compound strategy.
+RoSiStrat **never places bets** on Novibet. The fast path is a Chrome extension that watches your already-open table and posts each new number immediately.
+
+## Fast path
+
+1. Backend: `cd backend && npm run dev` (port **8080**).
+2. Frontend: `npm run dev` → `http://localhost:5173/novibet`.
+3. Chrome → `chrome://extensions` → **Developer mode** → **Load unpacked** → `extension/novibet-spin-bridge` (reload extension after updates).
+4. Leave the Novibet European roulette tab open; reload that tab once so scripts attach.
+
+### Results → RoSiStrat
+The extension watches the results ribbon and posts each **new** number to `/api/spins`. On `/novibet`, use **Live paper-trade** so the motor updates memory and the next stake list.
+
+### Confirm → place all chips at once
+1. Click **Preview next stakes** (or wait after a live result).
+2. Click **Confirm place on Novibet** and accept the browser confirm dialog.
+3. That creates a **pending** plan on `POST /api/bet-plans`.
+4. The extension polls every ~700ms, marks the plan `placing`, and clicks chip + spot for each line (0, 1st dozen, 2nd dozen, Black, Even) so you do not have to place coins one by one before the wheel locks.
+
+No unattended loop: **you must confirm every round**. Spot/chip detection is heuristic; if Evolution renames a label, adjust `spotHints` in `novibetBetPlan.ts`.
 
 ## Architecture
 
 1. You open European roulette on Novibet in Chrome (already signed in).
-2. Capture layer extracts each new strike `0–36`.
-3. `POST http://localhost:8080/api/spins` with `{ number, tableId, source, roundId?, ts? }`.
+2. `extension/novibet-spin-bridge` watches the results ribbon (MutationObserver + 400ms scan).
+3. `POST http://127.0.0.1:8080/api/spins` with `{ number, tableId, source: "devtools", roundId }`.
 4. `/novibet` **Live** mode polls `GET /api/spins?tableId=…&afterId=…` every 2s and advances the engine.
 
 ## Prerequisites

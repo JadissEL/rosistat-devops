@@ -17,6 +17,9 @@ import {
   insertSpinEvent,
   insertSpinEventsBulk,
   listSpinEvents,
+  upsertBetPlan,
+  getPendingBetPlan,
+  updateBetPlanStatus,
   type SpinEventInsert,
 } from "./dao.js";
 import { computeSimulationKpis } from "./kpis.js";
@@ -304,6 +307,81 @@ app.get("/api/spins", async (req, res) => {
     const afterId = req.query.afterId ? Number(req.query.afterId) : undefined;
     const rows = await listSpinEvents(db, { tableId, limit, afterId });
     res.json(rows);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * Human-confirmed multi-spot plans.
+ * UI creates pending plan after user clicks Confirm; extension polls and places once.
+ */
+app.post("/api/bet-plans", async (req, res) => {
+  try {
+    const body = req.body as {
+      id?: string;
+      tableId?: string;
+      status?: string;
+      spots?: unknown;
+      total?: number;
+      [key: string]: unknown;
+    };
+    const id =
+      typeof body.id === "string" && body.id
+        ? body.id
+        : `plan-${Date.now()}`;
+    const tableId =
+      typeof body.tableId === "string" && body.tableId.trim()
+        ? body.tableId.trim()
+        : "novibet-european-default";
+    const status =
+      body.status === "pending" ||
+      body.status === "placing" ||
+      body.status === "done" ||
+      body.status === "cancelled"
+        ? body.status
+        : "pending";
+    await upsertBetPlan(db, { id, tableId, status, payload: body });
+    res.status(201).json({ ok: true, id, status });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    res.status(500).json({ error: message });
+  }
+});
+
+app.get("/api/bet-plans/pending", async (req, res) => {
+  try {
+    const tableId = req.query.tableId as string | undefined;
+    const row = await getPendingBetPlan(db, tableId);
+    if (!row) return res.json(null);
+    let payload: unknown = row.payload;
+    try {
+      payload = JSON.parse(row.payload);
+    } catch {
+      /* keep raw */
+    }
+    res.json({ ...row, payload });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    res.status(500).json({ error: message });
+  }
+});
+
+app.patch("/api/bet-plans/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const status = (req.body as { status?: string }).status;
+    if (
+      status !== "pending" &&
+      status !== "placing" &&
+      status !== "done" &&
+      status !== "cancelled"
+    ) {
+      return res.status(400).json({ error: "invalid status" });
+    }
+    await updateBetPlanStatus(db, id, status);
+    res.json({ ok: true, id, status });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     res.status(500).json({ error: message });

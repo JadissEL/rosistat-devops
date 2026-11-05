@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "RoSiStrat Novibet Spin Bridge",
+  "version": "1.1.0",
+  "description": "Reads Novibet results and places a human-confirmed multi-spot chip layout. Never auto-plays without Confirm.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "http://localhost:8080/*",
+    "http://127.0.0.1:8080/*",
+    "*://*.novibet.com/*",
+    "*://*.novibet.gr/*",
+    "*://*.evo-games.com/*",
+    "*://*.evolutiongaming.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.novibet.com/*",
+        "*://*.novibet.gr/*",
+        "*://*.evo-games.com/*",
+        "*://*.evolutiongaming.com/*"
+      ],
+      "js": ["content.js", "placer.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ]
+}

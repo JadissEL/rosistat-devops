@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { apiGetLiveSpins, apiPostLiveSpins } from "@/lib/api";
+import { apiGetLiveSpins, apiPostBetPlan, apiPostLiveSpins } from "@/lib/api";
 import {
   createNovibetLiveSession,
   generateSpins,
@@ -26,8 +26,12 @@ import {
   type NovibetLiveSession,
   type NovibetSpinRow,
 } from "./index/novibetCompoundEngine";
+import {
+  getNextBetPlanFromSession,
+  type NovibetBetPlan,
+} from "./index/novibetBetPlan";
 import { parseSpinNumbers } from "./index/spinFeed";
-import { Play, RotateCcw, Radio } from "lucide-react";
+import { Play, RotateCcw, Radio, CheckCircle2 } from "lucide-react";
 
 const EUR = new Intl.NumberFormat("en-EU", {
   style: "currency",
@@ -49,7 +53,19 @@ export default function NovibetCompound() {
   const [liveOn, setLiveOn] = useState(false);
   const [liveStatus, setLiveStatus] = useState("Idle");
   const [lastFeedId, setLastFeedId] = useState(0);
+  const [nextPlan, setNextPlan] = useState<NovibetBetPlan | null>(null);
+  const [confirmStatus, setConfirmStatus] = useState("");
   const sessionRef = useRef<NovibetLiveSession | null>(null);
+
+  const refreshNextPlan = useCallback(() => {
+    if (!sessionRef.current) {
+      sessionRef.current = createNovibetLiveSession({
+        startingCredit: Math.max(0, Number(startingCredit) || 0),
+        robust: NOVIBET_ROBUST_DEFAULTS,
+      });
+    }
+    setNextPlan(getNextBetPlanFromSession(sessionRef.current, tableId));
+  }, [startingCredit, tableId]);
 
   const summary = useMemo(() => {
     if (rows.length === 0) return null;
@@ -83,7 +99,43 @@ export default function NovibetCompound() {
     setRows([]);
     setLastFeedId(0);
     setLiveStatus("Session reset");
-  }, [startingCredit]);
+    setConfirmStatus("");
+    setNextPlan(getNextBetPlanFromSession(sessionRef.current, tableId));
+  }, [startingCredit, tableId]);
+
+  const confirmPlaceOnNovibet = async () => {
+    if (!sessionRef.current) {
+      sessionRef.current = createNovibetLiveSession({
+        startingCredit: Math.max(0, Number(startingCredit) || 0),
+        robust: NOVIBET_ROBUST_DEFAULTS,
+      });
+    }
+    const plan = getNextBetPlanFromSession(sessionRef.current, tableId);
+    setNextPlan(plan);
+    if (!plan || plan.spots.length === 0) {
+      setConfirmStatus("No stakes to place (paused / below min).");
+      return;
+    }
+    const ok = window.confirm(
+      `Place these chips on your open Novibet table?\n\n` +
+        plan.spots.map((s) => `${s.label}: €${s.amount}`).join("\n") +
+        `\n\nTotal: €${plan.total}\n\nYou must confirm. The extension will only place this list once.`,
+    );
+    if (!ok) {
+      setConfirmStatus("Cancelled — nothing sent to Novibet.");
+      return;
+    }
+    try {
+      await apiPostBetPlan({ ...plan, status: "pending" });
+      setConfirmStatus(
+        `Confirmed plan ${plan.id} — extension will place chips on the open table now.`,
+      );
+      setNextPlan(plan);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "failed";
+      setConfirmStatus(`Could not queue plan: ${msg}`);
+    }
+  };
 
   const runBacktest = () => {
     setRunning(true);
@@ -164,6 +216,7 @@ export default function NovibetCompound() {
           setLiveStatus(
             `Applied ${newRows.length} real strike(s) · last #${newRows[newRows.length - 1].drawnNumber}`,
           );
+          setNextPlan(getNextBetPlanFromSession(session, tableId));
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "poll failed";
@@ -172,7 +225,7 @@ export default function NovibetCompound() {
     };
 
     void tick();
-    const id = window.setInterval(() => void tick(), 2000);
+    const id = window.setInterval(() => void tick(), 500);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -324,12 +377,23 @@ export default function NovibetCompound() {
                   </Button>
                 </>
               )}
+              <Button variant="outline" onClick={refreshNextPlan}>
+                Preview next stakes
+              </Button>
+              <Button
+                onClick={() => void confirmPlaceOnNovibet()}
+                className="bg-amber-600 hover:bg-amber-500"
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Confirm place on Novibet
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => {
                   setLiveOn(false);
                   setRows([]);
                   sessionRef.current = null;
+                  setNextPlan(null);
                 }}
                 disabled={!rows.length && !liveOn}
               >
@@ -337,8 +401,34 @@ export default function NovibetCompound() {
                 Clear
               </Button>
             </div>
+            {confirmStatus && (
+              <p className="text-sm text-amber-200">{confirmStatus}</p>
+            )}
           </CardContent>
         </Card>
+
+        {nextPlan && nextPlan.spots.length > 0 && (
+          <Card className="border-amber-800/50 bg-slate-900/80">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Next multi-spot layout · total {EUR.format(nextPlan.total)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-slate-300 space-y-2">
+              <p className="text-xs text-slate-400">
+                Confirm once → extension places all chips quickly so you do not
+                miss the betting window. No unattended auto-play.
+              </p>
+              <ul className="grid gap-1 sm:grid-cols-2">
+                {nextPlan.spots.map((s) => (
+                  <li key={s.id}>
+                    {s.label}: {EUR.format(s.amount)}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {summary && (
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">

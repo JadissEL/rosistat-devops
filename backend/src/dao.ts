@@ -168,4 +168,66 @@ export async function listSpinEvents(
   )) as SpinEventRow[];
 }
 
+/** Human-confirmed bet plans for the Chrome placer extension */
+export interface BetPlanRow {
+  id: string;
+  tableId: string;
+  status: "pending" | "placing" | "done" | "cancelled";
+  payload: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function upsertBetPlan(
+  db: Database,
+  plan: {
+    id: string;
+    tableId: string;
+    status: BetPlanRow["status"];
+    payload: unknown;
+  },
+): Promise<void> {
+  await run(
+    db,
+    `INSERT INTO bet_plans (id, tableId, status, payload, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(id) DO UPDATE SET
+       status = excluded.status,
+       payload = excluded.payload,
+       updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    [plan.id, plan.tableId, plan.status, JSON.stringify(plan.payload)],
+  );
+}
+
+export async function getPendingBetPlan(
+  db: Database,
+  tableId?: string,
+): Promise<BetPlanRow | undefined> {
+  if (tableId) {
+    return await get<BetPlanRow>(
+      db,
+      `SELECT * FROM bet_plans
+       WHERE status = 'pending' AND tableId = ?
+       ORDER BY createdAt ASC LIMIT 1`,
+      [tableId],
+    );
+  }
+  return await get<BetPlanRow>(
+    db,
+    `SELECT * FROM bet_plans WHERE status = 'pending' ORDER BY createdAt ASC LIMIT 1`,
+  );
+}
+
+export async function updateBetPlanStatus(
+  db: Database,
+  id: string,
+  status: BetPlanRow["status"],
+): Promise<void> {
+  await run(
+    db,
+    `UPDATE bet_plans SET status = ?, updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
+    [status, id],
+  );
+}
+
 

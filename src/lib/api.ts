@@ -200,4 +200,44 @@ export const apiGetLiveSpins = (opts?: {
   return apiGet<LiveSpinEvent[]>(`/api/spins${q}`);
 };
 
+export interface BetPlanPayload {
+  id: string;
+  tableId: string;
+  status: "pending" | "placing" | "done" | "cancelled";
+  currency?: string;
+  total: number;
+  spots: Array<{
+    id: string;
+    label: string;
+    amount: number;
+    spotHints: string[];
+  }>;
+  chipDenoms: number[];
+  note?: string;
+  createdAt?: string;
+}
+
+export const apiPostBetPlan = (plan: BetPlanPayload) =>
+  apiPost<{ ok: true; id: string; status: string }>("/api/bet-plans", plan);
+
+export const apiGetPendingBetPlan = (tableId?: string) => {
+  const q = tableId ? `?tableId=${encodeURIComponent(tableId)}` : "";
+  return apiGet<(BetPlanPayload & { payload?: BetPlanPayload }) | null>(
+    `/api/bet-plans/pending${q}`,
+  );
+};
+
+export async function apiPatchBetPlanStatus(
+  id: string,
+  status: BetPlanPayload["status"],
+): Promise<{ ok: true }> {
+  const res = await fetch(buildUrl(`/api/bet-plans/${id}`), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`PATCH /api/bet-plans/${id} failed: ${res.status}`);
+  return (await res.json()) as { ok: true };
+}
+
 
