@@ -83,4 +83,89 @@ export async function getSpinsStats(db: Database, simulationId: number) {
   return stats;
 }
 
+/** Live Novibet / Evolution strike feed (paper-trade) */
+export interface SpinEventInsert {
+  tableId: string;
+  roundId?: string | null;
+  number: number;
+  ts: string;
+  source: "devtools" | "csv" | "manual";
+}
+
+export interface SpinEventRow extends SpinEventInsert {
+  id: number;
+  createdAt: string;
+}
+
+export async function insertSpinEvent(
+  db: Database,
+  data: SpinEventInsert,
+): Promise<{ id: number; inserted: boolean }> {
+  const roundId = data.roundId || null;
+  try {
+    await run(
+      db,
+      `INSERT INTO spin_events (tableId, roundId, number, ts, source)
+       VALUES (?, ?, ?, ?, ?)`,
+      [data.tableId, roundId, data.number, data.ts, data.source],
+    );
+    const row = await get<{ id: number }>(db, "SELECT last_insert_rowid() as id");
+    return { id: row?.id ?? 0, inserted: true };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // Unique roundId collision → treat as idempotent success
+    if (msg.includes("UNIQUE") && roundId) {
+      const existing = await get<{ id: number }>(
+        db,
+        `SELECT id FROM spin_events WHERE tableId = ? AND roundId = ?`,
+        [data.tableId, roundId],
+      );
+      return { id: existing?.id ?? 0, inserted: false };
+    }
+    throw e;
+  }
+}
+
+export async function insertSpinEventsBulk(
+  db: Database,
+  events: SpinEventInsert[],
+): Promise<{ inserted: number; ids: number[] }> {
+  let inserted = 0;
+  const ids: number[] = [];
+  for (const ev of events) {
+    const r = await insertSpinEvent(db, ev);
+    if (r.inserted) inserted += 1;
+    ids.push(r.id);
+  }
+  return { inserted, ids };
+}
+
+export async function listSpinEvents(
+  db: Database,
+  opts: { tableId?: string; limit?: number; afterId?: number } = {},
+): Promise<SpinEventRow[]> {
+  const limit = Math.min(Math.max(opts.limit ?? 100, 1), 1000);
+  const params: unknown[] = [];
+  const where: string[] = [];
+  if (opts.tableId) {
+    where.push("tableId = ?");
+    params.push(opts.tableId);
+  }
+  if (typeof opts.afterId === "number" && opts.afterId > 0) {
+    where.push("id > ?");
+    params.push(opts.afterId);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  params.push(limit);
+  return (await all(
+    db,
+    `SELECT id, tableId, roundId, number, ts, source, createdAt
+     FROM spin_events
+     ${whereSql}
+     ORDER BY id ASC
+     LIMIT ?`,
+    params,
+  )) as SpinEventRow[];
+}
+
 

@@ -132,4 +132,72 @@ export const apiGetSimulationSpins = (id: number, limit?: number, offset?: numbe
 
 export const apiGetSimulationStats = (id: number) => apiGet<SpinsStats>(`/api/simulations/${id}/spins/stats`);
 
+export interface SimulationKpisResponse {
+  simulationId: number;
+  startingInvestment: number;
+  seed: number | null;
+  kpis: {
+    totalSpins: number;
+    finalEarnings: number;
+    maxDrawdown: number;
+    ruined: boolean;
+    ruinRate: number;
+    volatility: number;
+    profitFactor: number | null;
+    expectedValuePerSpin: number;
+    minCumulative: number;
+    maxCumulative: number;
+  };
+}
+
+export const apiGetSimulationKpis = (id: number) =>
+  apiGet<SimulationKpisResponse>(`/api/simulations/${id}/kpis`);
+
+/** Raw Prometheus text from GET /api/metrics */
+export async function apiGetMetricsText(): Promise<string> {
+  const res = await fetch(buildUrl("/api/metrics"));
+  if (!res.ok) throw new Error(`GET /api/metrics failed: ${res.status}`);
+  return res.text();
+}
+
+/** Live Novibet/Evolution strike feed (paper-trade) */
+export interface LiveSpinEvent {
+  id: number;
+  tableId: string;
+  roundId?: string | null;
+  number: number;
+  ts: string;
+  source: "devtools" | "csv" | "manual";
+  createdAt: string;
+}
+
+export interface LiveSpinPostBody {
+  tableId?: string;
+  roundId?: string | null;
+  number: number;
+  ts?: string;
+  source?: "devtools" | "csv" | "manual";
+}
+
+export const apiPostLiveSpins = (
+  body: LiveSpinPostBody | LiveSpinPostBody[],
+) =>
+  apiPost<{ ok: true; id?: number; inserted?: number | boolean; ids?: number[] }>(
+    "/api/spins",
+    body,
+  );
+
+export const apiGetLiveSpins = (opts?: {
+  tableId?: string;
+  limit?: number;
+  afterId?: number;
+}) => {
+  const params = new URLSearchParams();
+  if (opts?.tableId) params.set("tableId", opts.tableId);
+  if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+  if (typeof opts?.afterId === "number") params.set("afterId", String(opts.afterId));
+  const q = params.toString() ? `?${params.toString()}` : "";
+  return apiGet<LiveSpinEvent[]>(`/api/spins${q}`);
+};
+
 
